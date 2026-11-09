@@ -2,7 +2,8 @@
 
     python3 cap-box/tools/factory.py
 
-Writes to cap-box/factory/.
+Writes the 4 factory files to cap-box/factory/ (box + insert: PRO 1:1 die-line, drawing).
+Optional: --dxf adds DXF die-lines, --spec adds a one-page production spec.
   *_DIELINE_1to1.pdf  -  vector die-line only, 1:1 mm, spot colours CutContour / Crease,
                        PDF layers CUT, CREASE, INFO (INFO = non-printing notes)
   *_DIELINE.dxf  -  same lines, layers CUT (red) / CREASE (blue), units mm
@@ -158,9 +159,10 @@ def main():
         "Rev I: side split starts %.0f mm from the back wall (step), slope %.1f deg. Printer to confirm crease/slot allowances."
         % (info["step"], info["slope_deg"]),
     ]
-    write_pdf(os.path.join(out, "MFC-box-RevI_DIELINE_1to1.pdf"), b_cut, b_crease, box_info, "MFC CAP BOX - Rev I - DIELINE 1:1")
-    write_dxf(os.path.join(out, "MFC-box-RevI_DIELINE.dxf"), b_cut, b_crease)
-    shutil.copy(os.path.join(ROOT, "print", "MFC-box-RevI-step_dieline.pdf"), os.path.join(out, "MFC-box-RevI_DRAWING.pdf"))
+    write_pdf(os.path.join(out, "MFC-box-RevI_PRO-dieline-1to1.pdf"), b_cut, b_crease, box_info, "MFC CAP BOX - Rev I - DIELINE 1:1")
+    if "--dxf" in sys.argv:
+        write_dxf(os.path.join(out, "MFC-box-RevI_dieline.dxf"), b_cut, b_crease)
+    shutil.copy(os.path.join(ROOT, "print", "MFC-box-RevI-step_dieline.pdf"), os.path.join(out, "MFC-box-RevI_drawing.pdf"))
 
     # ---- INSERT Rev C (die-line from the source PDF vectors)
     raw = read_pdf(os.path.join(ROOT, "source", "MFC-insert-RevC.pdf"))
@@ -174,9 +176,10 @@ def main():
         "CutContour = cut (arch, petals, finger hole, lock tabs). Crease = fold.",
         "Printer to confirm crease allowances for the chosen board.",
     ]
-    write_pdf(os.path.join(out, "MFC-insert-RevC_DIELINE_1to1.pdf"), i_cut, i_crease, ins_info, "MFC CAP INSERT - Rev C - DIELINE 1:1")
-    write_dxf(os.path.join(out, "MFC-insert-RevC_DIELINE.dxf"), i_cut, i_crease)
-    shutil.copy(os.path.join(ROOT, "source", "MFC-insert-RevC.pdf"), os.path.join(out, "MFC-insert-RevC_DRAWING.pdf"))
+    write_pdf(os.path.join(out, "MFC-insert-RevC_PRO-dieline-1to1.pdf"), i_cut, i_crease, ins_info, "MFC CAP INSERT - Rev C - DIELINE 1:1")
+    if "--dxf" in sys.argv:
+        write_dxf(os.path.join(out, "MFC-insert-RevC_dieline.dxf"), i_cut, i_crease)
+    shutil.copy(os.path.join(ROOT, "source", "MFC-insert-RevC.pdf"), os.path.join(out, "MFC-insert-RevC_drawing.pdf"))
     print("box", [round(v, 1) for v in bx], "lines", len(b_cut), len(b_crease))
     print("insert", [round(v, 1) for v in ix], "lines", len(i_cut), len(i_crease))
 
@@ -241,4 +244,5 @@ def write_spec(path):
 
 
 if __name__ == "__main__":
-    write_spec(os.path.join(ROOT, "factory", "MFC_FACTORY-SPEC.pdf"))
+    if "--spec" in sys.argv:
+        write_spec(os.path.join(ROOT, "factory", "MFC_FACTORY-SPEC.pdf"))
