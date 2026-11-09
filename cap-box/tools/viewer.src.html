@@ -1,0 +1,606 @@
+<title>MFC Cap Box 3D</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600&family=Unbounded:wght@500;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: full-bleed 3D stage, a die-line style control rail on the right (bottom sheet on phones).
+   Colour vocabulary comes from the die-line itself: cut red, crease blue, board kraft. */
+:root{
+  --bg:#e9ecea; --stage:#e3e6e3; --panel:#fbfcfb; --fg:#191c1e; --muted:#62686d; --line:#d3d8d5;
+  --crease:#0a6fd6; --cut:#d8173a; --kraft:#b8965f; --chip:#eef1ef;
+  --f-display:"Unbounded","Arial Black",system-ui,sans-serif;
+  --f-body:"Onest",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#121517; --stage:#16191c; --panel:#1b1f22; --fg:#e7eaec; --muted:#98a0a6; --line:#2c3236;
+  --crease:#4c9df2; --cut:#ff4d6a; --kraft:#c9a873; --chip:#23282c; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#121517; --stage:#16191c; --panel:#1b1f22; --fg:#e7eaec; --muted:#98a0a6; --line:#2c3236;
+  --crease:#4c9df2; --cut:#ff4d6a; --kraft:#c9a873; --chip:#23282c; color-scheme:dark}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:14px;overflow:hidden}
+.app{height:100%;display:grid;grid-template-columns:minmax(0,1fr) 360px}
+.stage{position:relative;min-width:0;background:var(--stage)}
+#c{display:block;width:100%;height:100%;touch-action:none;cursor:grab}
+#c:active{cursor:grabbing}
+.hud{position:absolute;left:max(16px,env(safe-area-inset-left,0px));top:16px;display:flex;flex-direction:column;gap:6px;pointer-events:none}
+.hud .brand{font-family:var(--f-display);font-weight:700;font-size:18px;letter-spacing:.02em}
+.hud .meta{font-family:var(--f-mono);font-size:11px;color:var(--muted);line-height:1.5}
+.views{position:absolute;right:16px;bottom:16px;display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.views button,.seg button,.btn{font:500 12px var(--f-body);color:var(--fg);background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:7px 10px;cursor:pointer}
+.views button:hover,.btn:hover,.seg button:hover{border-color:var(--crease)}
+button:focus-visible,input:focus-visible,label.btn:focus-within{outline:2px solid var(--crease);outline-offset:2px}
+.hint{position:absolute;left:max(16px,env(safe-area-inset-left,0px));bottom:16px;font-size:11px;color:var(--muted);max-width:40ch}
+.rail{background:var(--panel);border-left:1px solid var(--line);display:flex;flex-direction:column;min-height:0;padding-right:env(safe-area-inset-right,0px)}
+.rail-scroll{overflow-y:auto;padding:18px 18px 24px;display:flex;flex-direction:column;gap:20px;min-height:0}
+.eyebrow{font:600 10.5px var(--f-body);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.now{display:flex;flex-direction:column;gap:8px}
+.now .num{font-family:var(--f-mono);font-size:12px;color:var(--crease)}
+.now h1{font:700 17px/1.3 var(--f-display);margin:0;text-wrap:balance}
+.now p{margin:0;color:var(--muted);line-height:1.5;min-height:4.5em}
+.timeline{display:flex;flex-direction:column;gap:10px}
+.track{position:relative;height:28px}
+.track input{position:absolute;inset:0;width:100%;margin:0;appearance:none;background:transparent;cursor:pointer}
+.track input::-webkit-slider-runnable-track{height:4px;background:var(--line);border-radius:2px}
+.track input::-moz-range-track{height:4px;background:var(--line);border-radius:2px}
+.track input::-webkit-slider-thumb{appearance:none;width:18px;height:18px;border-radius:50%;background:var(--crease);margin-top:-7px;border:3px solid var(--panel);box-shadow:0 0 0 1px var(--crease)}
+.track input::-moz-range-thumb{width:14px;height:14px;border-radius:50%;background:var(--crease);border:3px solid var(--panel)}
+.ticks{position:absolute;left:9px;right:9px;top:20px;height:8px;pointer-events:none}
+.ticks i{position:absolute;top:0;width:1px;height:6px;background:var(--muted);opacity:.6}
+.controls{display:flex;gap:6px;align-items:center}
+.controls .btn{flex:1}
+.btn.primary{background:var(--crease);border-color:var(--crease);color:#fff}
+.steps{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px}
+.steps button{width:100%;display:grid;grid-template-columns:28px 1fr;gap:8px;align-items:baseline;text-align:left;background:none;border:0;border-radius:6px;padding:7px 8px;color:var(--muted);font:400 13px/1.35 var(--f-body);cursor:pointer}
+.steps button .n{font-family:var(--f-mono);font-size:11px}
+.steps button:hover{background:var(--chip);color:var(--fg)}
+.steps button.done{color:var(--fg)}
+.steps button.active{background:var(--chip);color:var(--fg);box-shadow:inset 2px 0 0 var(--crease)}
+.steps .grp{font:600 10.5px var(--f-body);letter-spacing:.12em;text-transform:uppercase;color:var(--muted);padding:10px 8px 4px}
+.field{display:flex;flex-direction:column;gap:8px}
+.row{display:flex;gap:10px;align-items:center;justify-content:space-between}
+.row label{color:var(--fg)}
+.lid{width:100%}
+.seg{display:flex;gap:4px;flex-wrap:wrap}
+.seg button[aria-pressed="true"]{background:var(--fg);color:var(--panel);border-color:var(--fg)}
+.uploads{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.uploads label{text-align:center}
+.uploads input{position:absolute;opacity:0;width:1px;height:1px}
+.note{font-size:12px;color:var(--muted);line-height:1.5;margin:0}
+.note code,.mono{font-family:var(--f-mono);font-size:11.5px}
+.legend{display:grid;grid-template-columns:auto 1fr;gap:4px 10px;font-size:12px;color:var(--muted);align-items:center}
+.sw{width:22px;height:0;border-top:2px solid}
+.sw.cut{border-color:var(--cut)} .sw.crease{border-color:var(--crease);border-top-style:dashed}
+.sw.kraft{height:10px;border:0;background:var(--kraft);border-radius:2px}
+.dims{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:12.5px}
+.dims dt{color:var(--muted)} .dims dd{margin:0;font-family:var(--f-mono);font-size:12px;font-variant-numeric:tabular-nums}
+.toast{position:absolute;left:50%;top:16px;transform:translateX(-50%);background:var(--fg);color:var(--panel);padding:8px 12px;border-radius:6px;font-size:12.5px;max-width:min(90%,46ch)}
+.loading{position:absolute;inset:0;display:grid;place-items:center;color:var(--muted);font-size:13px}
+@media (max-width:820px){
+  .app{grid-template-columns:1fr;grid-template-rows:minmax(0,55%) minmax(0,45%)}
+  .rail{border-left:0;border-top:1px solid var(--line);padding-left:env(safe-area-inset-left,0px)}
+  .rail-scroll{padding:14px max(16px,env(safe-area-inset-right,0px)) 20px max(16px,env(safe-area-inset-left,0px))}
+  .hint{display:none}
+  .now p{min-height:0}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="app">
+  <div class="stage">
+    <canvas id="c" aria-label="3D модель коробки"></canvas>
+    <div class="loading" id="loading">Загружаю 3D…</div>
+    <div class="hud">
+      <div class="brand">MFC · Cap Box</div>
+      <div class="meta">Коробка Rev H · E-гофра 1,5 мм · без клея<br>Вкладыш Rev C · F-гофра</div>
+    </div>
+    <div class="hint">Тяните — вращать · колесо / щипок — масштаб · правая кнопка или Shift — сдвиг</div>
+    <div class="views" role="group" aria-label="Ракурс">
+      <button type="button" data-view="iso">Общий</button>
+      <button type="button" data-view="front">Спереди</button>
+      <button type="button" data-view="side">Сбоку</button>
+      <button type="button" data-view="top">Сверху</button>
+      <button type="button" data-view="fit">Вписать</button>
+    </div>
+    <div class="toast" id="toast" hidden></div>
+  </div>
+
+  <aside class="rail" aria-label="Сборка">
+    <div class="rail-scroll">
+      <section class="now" aria-live="polite">
+        <div class="eyebrow">Шаг <span class="num" id="stepNum">0 / 0</span></div>
+        <h1 id="stepTitle">Развёртки</h1>
+        <p id="stepDesc"></p>
+      </section>
+
+      <section class="timeline">
+        <div class="track">
+          <input type="range" id="t" min="0" max="11" step="0.001" value="0" aria-label="Ход сборки">
+          <div class="ticks" id="ticks"></div>
+        </div>
+        <div class="controls">
+          <button class="btn" type="button" id="prev" aria-label="Предыдущий шаг">← Шаг</button>
+          <button class="btn primary" type="button" id="play">▶ Собрать</button>
+          <button class="btn" type="button" id="next" aria-label="Следующий шаг">Шаг →</button>
+        </div>
+      </section>
+
+      <section class="field">
+        <div class="row"><label for="lid">Открыть крышку</label><span class="mono" id="lidVal">0°</span></div>
+        <input class="lid" type="range" id="lid" min="0" max="1" step="0.001" value="0">
+      </section>
+
+      <section>
+        <div class="eyebrow">Порядок сборки</div>
+        <ol class="steps" id="steps"></ol>
+      </section>
+
+      <section class="field">
+        <div class="eyebrow">Печать на модели</div>
+        <div class="seg" role="group" aria-label="Что показать на картоне" id="texMode">
+          <button type="button" data-mode="concept" aria-pressed="true">Концепт</button>
+          <button type="button" data-mode="template" aria-pressed="false">Шаблон</button>
+          <button type="button" data-mode="plain" aria-pressed="false">Белый картон</button>
+        </div>
+        <div class="uploads">
+          <label class="btn" for="upBox">Свой дизайн: коробка<input type="file" id="upBox" accept="image/png,image/jpeg,image/svg+xml"></label>
+          <label class="btn" for="upIns">Свой дизайн: вкладыш<input type="file" id="upIns" accept="image/png,image/jpeg,image/svg+xml"></label>
+        </div>
+        <p class="note">Экспортируйте весь артборд шаблона (<span class="mono" id="artBox"></span> мм для коробки, <span class="mono" id="artIns"></span> мм для вкладыша) в PNG/JPG — картинка ляжет на модель точно по высечке.</p>
+        <div class="row"><label for="showIns">Показывать вкладыш</label><input type="checkbox" id="showIns" checked></div>
+      </section>
+
+      <section class="field">
+        <div class="eyebrow">Размеры из чертежей</div>
+        <dl class="dims">
+          <dt>Снаружи</dt><dd>218,2 × 233,6 × 199 мм</dd>
+          <dt>Внутри</dt><dd>206 × 226 × 196 мм</dd>
+          <dt>Лист коробки</dt><dd>728,1 × 947,6 мм</dd>
+          <dt>Лист вкладыша</dt><dd>945,1 × 368,6 мм</dd>
+          <dt>Наклон панели</dt><dd>65° · 217 мм</dd>
+        </dl>
+        <div class="legend">
+          <span class="sw kraft"></span><span>Внутренняя сторона картона (крафт)</span>
+          <span class="sw crease"></span><span>Подсветка — панели, которые гнутся на этом шаге</span>
+        </div>
+      </section>
+    </div>
+  </aside>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+<script>
+"use strict";
+const GEO = /*__GEOMETRY__*/null;
+const TEX = /*__TEXTURES__*/null;
+
+/* ------------------------------------------------------------------ steps
+   angle > 0 folds a panel toward the INSIDE (unprinted) face of its parent.
+   Each move: [panelId, targetAngleDeg, startFraction, endFraction] inside the step. */
+const STEPS = [
+  {g:"Коробка", t:"Развёртки", d:"Обе развёртки лежат лицом (печатью) вниз — так их складывают. Сверху коробка Rev H, спереди вкладыш Rev C.", m:[]},
+  {g:"Коробка", t:"Задняя стенка и передний борт", d:"Поднимите заднюю стенку и передний борт от дна на 90°. Крышку пока откиньте назад — она соберётся отдельно.",
+    m:[["back",90,0,1],["lip",90,.2,1],["lidtop",-90,0,1]]},
+  {g:"Коробка", t:"Ушки и боковые стенки", d:"Загните передние ушки боковых стенок внутрь и поднимите стенки. Ушки заходят за передний борт.",
+    m:[["frontearL",90,0,.45],["frontearR",90,0,.45],["sideL",90,.3,1],["sideR",90,.3,1]]},
+  {g:"Коробка", t:"Внутренний борт", d:"Переверните внутренний борт на 180° внутрь — он прижимает ушки. Два язычка входят в прорези дна.",
+    m:[["innerlip",180,0,1]]},
+  {g:"Коробка", t:"Задние ушки и вкладыши стенок", d:"Загните ушки задней стенки внутрь. Вкладыши боковых стенок перекиньте на 180° через наклонный край — они закрывают ушки, язычки входят в прорези дна.",
+    m:[["backearL",90,0,.4],["backearR",90,0,.4],["sidelinerL",180,.35,1],["sidelinerR",180,.35,1]]},
+  {g:"Вкладыш", t:"Крылья вкладыша — в трубы", d:"Крылья складываются назад в две трубы-опоры: боковая стенка, задняя стенка трубы (100 мм), внутренняя стенка и замок. Внутренние стенки встречаются по центру, язычки правой входят в вырезы левой.",
+    m:[["w1L",90,0,.3],["w1R",90,0,.3],["f1L",90,.15,.35],["f1R",90,.15,.35],["w2L",90,.25,.55],["w2R",90,.25,.55],
+       ["w3L",90,.5,.8],["w3R",90,.5,.8],["w4L",90,.75,1],["w4R",90,.75,1],["tab1",-180,.75,1],["tab2",-180,.75,1]]},
+  {g:"Вкладыш", t:"Клапаны и лепестки арки", d:"Поставьте вкладыш. Нижний клапан (83,6 мм) ложится на дно, верхний (48 мм) уходит к задней стенке, панель стоит под 65°. Лепестки арки отгибаются вперёд — на них садится кепка.",
+    m:[["@insert",1,0,.5],["tray",-65,.35,.8],["topflap",65,.35,.8],["@petals",-90,.55,1]]},
+  {g:"Вкладыш", t:"Вкладыш в коробку", d:"Опустите вкладыш в основание: поддон на дне у переднего борта, трубы упираются в заднюю стенку. Глубина внутри 226 мм, зазор около 0,6 мм.",
+    m:[["@insert",2,0,1]]},
+  {g:"Крышка", t:"Перед и бока крышки", d:"Опустите перед крышки и оба бока на 90°.",
+    m:[["lidfront",90,0,.6],["lidsideL",90,.3,1],["lidsideR",90,.3,1]]},
+  {g:"Крышка", t:"Вкладыши и ушки крышки", d:"Вкладыши крышки перекиньте на 180° через наклонный край, их ушки уходят за перед крышки.",
+    m:[["lidlinerL",180,0,.7],["lidlinerR",180,0,.7],["lidearL",-90,.6,1],["lidearR",-90,.6,1]]},
+  {g:"Крышка", t:"Внутренний перед и язычок", d:"Внутренний перед крышки поднимите на 180° — он зажимает ушки. Язычок опустите на 180°: при закрытии он заходит за внутренний борт.",
+    m:[["lidinner",180,0,.55],["tuck",-180,.45,1]]},
+  {g:"Крышка", t:"Закрыть крышку", d:"Крышка поворачивается на петле по верхнему краю задней стенки. Коробка собрана: 218,2 × 233,6 × 199 мм снаружи. Ползунок «Открыть крышку» показывает вкладыш внутри.",
+    m:[["lidtop",90,0,1]]},
+];
+const NSTEP = STEPS.length - 1;
+
+/* ------------------------------------------------------------------ helpers */
+const $ = s => document.querySelector(s);
+const cssVar = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const ease = x => x <= 0 ? 0 : x >= 1 ? 1 : x * x * (3 - 2 * x);
+const D2R = Math.PI / 180;
+function toast(msg){const el=$("#toast");el.textContent=msg;el.hidden=false;clearTimeout(toast._t);toast._t=setTimeout(()=>el.hidden=true,4200);}
+
+if (!window.THREE) { $("#loading").textContent = "Не удалось загрузить three.js — проверьте подключение к интернету."; throw new Error("three missing"); }
+
+/* ------------------------------------------------------------------ renderer */
+const canvas = $("#c");
+const renderer = new THREE.WebGLRenderer({canvas, antialias:true, preserveDrawingBuffer:true});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(32, 1, 5, 20000);
+
+scene.add(new THREE.HemisphereLight(0xffffff, 0x8a8478, 1.15));
+const sun = new THREE.DirectionalLight(0xffffff, 1.9);
+sun.position.set(-700, 1500, -900);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+Object.assign(sun.shadow.camera, {left:-1100, right:1100, top:1100, bottom:-1100, near:100, far:4000});
+sun.shadow.bias = -0.0004;
+scene.add(sun);
+const fill = new THREE.DirectionalLight(0xffffff, 0.55); fill.position.set(900, 500, 700); scene.add(fill);
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(6000, 6000), new THREE.ShadowMaterial({opacity:.16}));
+ground.rotation.x = -Math.PI / 2; ground.position.y = -0.3; ground.receiveShadow = true; scene.add(ground);
+
+function applyTheme(){
+  scene.background = new THREE.Color(cssVar("--stage") || "#e3e6e3");
+  HL.color.set(cssVar("--crease") || "#0a6fd6");
+}
+
+/* ------------------------------------------------------------------ materials & textures */
+const HL = {color:new THREE.Color("#0a6fd6")};
+const SHEETS = {
+  box:   {origin:[404.06, 842.355], inner:"#c7aa78", edge:"#a8895a", group:new THREE.Group()},
+  insert:{origin:[512.78, 337.19],  inner:"#e9e6df", edge:"#cfcabe", group:new THREE.Group()},
+};
+for (const k in SHEETS){
+  const S = SHEETS[k]; Object.assign(S, GEO[k]); scene.add(S.group);
+  S.printMat = new THREE.MeshStandardMaterial({color:0xffffff, roughness:.62, metalness:0});
+  S.mode = "concept"; S.custom = null;
+}
+
+function svgToCanvas(svgText, art){
+  return new Promise((res, rej) => {
+    const pxmm = 3.2;
+    const w = Math.round(art.w * pxmm), h = Math.round(art.h * pxmm);
+    const blob = new Blob([svgText], {type:"image/svg+xml"});
+    const url = URL.createObjectURL(blob);
+    const img = new Image();
+    img.onload = () => { const c = document.createElement("canvas"); c.width = w; c.height = h;
+      c.getContext("2d").drawImage(img, 0, 0, w, h); URL.revokeObjectURL(url); res(c); };
+    img.onerror = e => { URL.revokeObjectURL(url); rej(e); };
+    img.src = url;
+  });
+}
+function imageToCanvas(img, art){
+  const maxSide = 4096, ar = art.w / art.h;
+  let w = Math.min(img.naturalWidth || img.width, maxSide), h = Math.round(w / ar);
+  if (h > maxSide){ h = maxSide; w = Math.round(h * ar); }
+  const c = document.createElement("canvas"); c.width = w; c.height = h;
+  c.getContext("2d").drawImage(img, 0, 0, w, h); return c;
+}
+const texCache = {};
+async function setTexture(k){
+  const S = SHEETS[k];
+  let cnv = null;
+  if (S.mode === "custom" && S.custom) cnv = S.custom;
+  else if (S.mode === "concept" || S.mode === "template"){
+    const key = k + S.mode;
+    if (!texCache[key]) texCache[key] = await svgToCanvas(TEX[k][S.mode], S.art);
+    cnv = texCache[key];
+  }
+  if (S.printMat.map) S.printMat.map.dispose();
+  if (cnv){
+    const t = new THREE.CanvasTexture(cnv);
+    t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = renderer.capabilities.getMaxAnisotropy();
+    S.printMat.map = t; S.printMat.color.set(0xffffff);
+  } else { S.printMat.map = null; S.printMat.color.set(0xf4f3ef); }
+  S.printMat.needsUpdate = true; requestRender();
+}
+
+/* ------------------------------------------------------------------ panel geometry */
+function buildPanel(p, S){
+  const t = S.thickness, O = S.origin, art = S.art;
+  const L = (x, y, h) => [x - O[0], h, -(y - O[1])];
+  const contour = p.poly.map(q => new THREE.Vector2(q[0], q[1]));
+  const holes = (p.holes || []).map(h => h.map(q => new THREE.Vector2(q[0], q[1])));
+  const tris = THREE.ShapeUtils.triangulateShape(contour, holes);
+  const all = contour.concat(...holes);
+  const pos = [], nrm = [], uv = [];
+  const pushV = (v, n, u) => { pos.push(...v); nrm.push(...n); uv.push(...u); };
+  const uvOf = q => [(q.x - art.x) / art.w, 1 - (q.y - art.y) / art.h];
+  // print face (outside of the board) at h=0, facing -Y in the flat sheet
+  for (const tr of tris){
+    let [a, b, c] = tr.map(i => all[i]);
+    const A = L(a.x, a.y, -t), B = L(b.x, b.y, -t), C = L(c.x, c.y, -t);
+    const ny = (B[2]-A[2])*(C[0]-A[0]) - (B[0]-A[0])*(C[2]-A[2]);
+    if (ny > 0) [b, c] = [c, b];
+    for (const q of [a, b, c]) pushV(L(q.x, q.y, -t), [0,-1,0], uvOf(q));
+  }
+  const nPrint = pos.length / 3;
+  for (const tr of tris){
+    let [a, b, c] = tr.map(i => all[i]);
+    const A = L(a.x, a.y, 0), B = L(b.x, b.y, 0), C = L(c.x, c.y, 0);
+    const ny = (B[2]-A[2])*(C[0]-A[0]) - (B[0]-A[0])*(C[2]-A[2]);
+    if (ny < 0) [b, c] = [c, b];
+    for (const q of [a, b, c]) pushV(L(q.x, q.y, 0), [0,1,0], uvOf(q));
+  }
+  const nInner = pos.length / 3 - nPrint;
+  for (const ring of [contour, ...holes]){
+    for (let i = 0; i < ring.length; i++){
+      const a = ring[i], b = ring[(i + 1) % ring.length];
+      const ex = b.x - a.x, ey = b.y - a.y, len = Math.hypot(ex, ey) || 1;
+      const n = [ey / len, 0, ex / len];
+      const quad = [L(a.x,a.y,-t), L(b.x,b.y,-t), L(b.x,b.y,0), L(a.x,a.y,-t), L(b.x,b.y,0), L(a.x,a.y,0)];
+      for (const v of quad) pushV(v, n, [0, 0]);
+    }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute("normal", new THREE.Float32BufferAttribute(nrm, 3));
+  g.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2));
+  g.addGroup(0, nPrint, 0); g.addGroup(nPrint, nInner, 1); g.addGroup(nPrint + nInner, pos.length / 3 - nPrint - nInner, 2);
+  g.computeBoundingSphere();
+  const inner = new THREE.MeshStandardMaterial({color:S.inner, roughness:.9, emissive:0x000000});
+  const edge = new THREE.MeshStandardMaterial({color:S.edge, roughness:.95, side:THREE.DoubleSide});
+  const mesh = new THREE.Mesh(g, [S.printMat, inner, edge]);
+  mesh.castShadow = true; mesh.receiveShadow = true; mesh.matrixAutoUpdate = false;
+  S.group.add(mesh);
+
+  const P = {id:p.id, sheet:S, parent:null, mesh, inner, angle:0, world:new THREE.Matrix4()};
+  if (p.hinge){
+    const p1 = new THREE.Vector3(...L(p.hinge[0][0], p.hinge[0][1], 0));
+    const p2 = new THREE.Vector3(...L(p.hinge[1][0], p.hinge[1][1], 0));
+    const axis = p2.clone().sub(p1).normalize();
+    let cx = 0, cy = 0; for (const q of p.poly){ cx += q[0]; cy += q[1]; }
+    const c = new THREE.Vector3(...L(cx / p.poly.length, cy / p.poly.length, 0));
+    if (axis.clone().cross(c.clone().sub(p1)).y < 0) axis.negate();
+    P.pivot = p1; P.axis = axis;
+  }
+  return P;
+}
+
+const PANELS = {}, ORDER = [];
+for (const k in SHEETS){
+  for (const p of SHEETS[k].panels){
+    const P = buildPanel(p, SHEETS[k]);
+    P.parentId = p.parent; P.lift = p.lift; PANELS[p.id] = P; ORDER.push(P);
+  }
+}
+const PETALS = ORDER.filter(P => P.id.startsWith("petal")).map(P => P.id);
+
+/* ------------------------------------------------------------------ insert placement (root pose) */
+const INS = (() => {
+  const c = Math.cos(65 * D2R), s = Math.sin(65 * D2R);
+  const T = 1.5, front = -116.04 + 2 * T + 0.3;            // inside face of the folded inner lip
+  const bottomZ = front + 83.6;                            // tray reaches the front wall
+  const finalPos = new THREE.Vector3(0, T + 0.1, bottomZ); // panel foot on the floor
+  const finalQ = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(
+    new THREE.Vector3(-1, 0, 0), new THREE.Vector3(0, -c, s), new THREE.Vector3(0, s, c)));
+  return {flatPos:new THREE.Vector3(0, 1.1, -500), flatQ:new THREE.Quaternion(),
+          standPos:new THREE.Vector3(0, 115, bottomZ - 400), finalPos, finalQ};
+})();
+function insertPose(p){
+  const q = new THREE.Quaternion(), v = new THREE.Vector3();
+  if (p <= 1){ const e = ease(p); q.slerpQuaternions(INS.flatQ, INS.finalQ, e); v.lerpVectors(INS.flatPos, INS.standPos, e); }
+  else {
+    const s = p - 1; q.copy(INS.finalQ);
+    const a = ease(Math.min(s / .65, 1)), b = ease((s - .55) / .45);
+    v.set(0, INS.standPos.y + (INS.finalPos.y - INS.standPos.y) * b, INS.standPos.z + (INS.finalPos.z - INS.standPos.z) * a);
+  }
+  return new THREE.Matrix4().compose(v, q, new THREE.Vector3(1, 1, 1));
+}
+
+/* ------------------------------------------------------------------ timeline → angles */
+const TRACKS = {};       // id -> [{t0,t1,a0,a1}]
+(function buildTracks(){
+  const cur = {};
+  STEPS.forEach((st, i) => {
+    for (const [id, to, f0, f1] of st.m){
+      const ids = id === "@petals" ? PETALS : [id];
+      for (const pid of ids){
+        const from = cur[pid] ?? 0;
+        (TRACKS[pid] = TRACKS[pid] || []).push({t0:i - 1 + f0, t1:i - 1 + f1, a0:from, a1:to, step:i});
+        cur[pid] = to;
+      }
+    }
+  });
+})();
+function valueAt(id, t){
+  const tr = TRACKS[id]; if (!tr) return 0;
+  let v = tr[0].a0;
+  for (const k of tr){
+    if (t >= k.t1) v = k.a1;
+    else if (t > k.t0){ v = k.a0 + (k.a1 - k.a0) * ease((t - k.t0) / (k.t1 - k.t0)); break; }
+    else break;
+  }
+  return v;
+}
+function movingAt(id, t){
+  const tr = TRACKS[id]; if (!tr) return false;
+  const step = Math.min(NSTEP, Math.floor(t) + 1);
+  return tr.some(k => k.step === step) && t > 0 && t < NSTEP + 0.0001 && !Number.isInteger(+t.toFixed(4));
+}
+
+const tmp = new THREE.Matrix4(), tA = new THREE.Matrix4(), tB = new THREE.Matrix4();
+const UP = new THREE.Vector3(0, 1, 0);
+let T = 0, LID = 0;
+function pose(){
+  const boxRoot = new THREE.Matrix4().makeTranslation(0, 1.5, 0);
+  const insRoot = insertPose(valueAt("@insert", T));
+  for (const P of ORDER){
+    const base = P.parentId ? PANELS[P.parentId].world : (P.sheet === SHEETS.box ? boxRoot : insRoot);
+    let ang = valueAt(P.id, T);
+    if (P.id === "lidtop" && LID > 0) ang = ang + (Math.min(ang, -35) - ang) * LID;
+    P.angle = ang;
+    if (P.pivot && Math.abs(ang) > 1e-6){
+      const t = P.sheet.thickness;
+      const h = P.lift == null ? 0 : P.lift >= 0 ? (P.lift * t + 0.3) / 2 : P.lift * t - 0.15;
+      const off = Math.sign(ang) * h;
+      const piv = P.pivot.clone().addScaledVector(UP, off);
+      tA.makeTranslation(piv.x, piv.y, piv.z);
+      tB.makeRotationAxis(P.axis, ang * D2R);
+      tmp.makeTranslation(-piv.x, -piv.y, -piv.z);
+      P.world.copy(base).multiply(tA).multiply(tB).multiply(tmp);
+    } else P.world.copy(base);
+    P.mesh.matrix.copy(P.world); P.mesh.matrixWorldNeedsUpdate = true;
+    const hl = movingAt(P.id, T) || (P.sheet === SHEETS.insert && P.parentId === null && movingAt("@insert", T));
+    P.inner.emissive.copy(hl ? HL.color : new THREE.Color(0)); P.inner.emissiveIntensity = hl ? .28 : 0;
+  }
+}
+
+/* ------------------------------------------------------------------ camera (own orbit) */
+const cam = {target:new THREE.Vector3(0, 60, 40), theta:-0.75, phi:0.95, r:2300};
+let camAnim = null;
+function placeCamera(){
+  const {target, theta, phi, r} = cam;
+  camera.position.set(target.x + r * Math.sin(phi) * Math.sin(theta), target.y + r * Math.cos(phi), target.z - r * Math.sin(phi) * Math.cos(theta));
+  camera.lookAt(target);
+}
+const VIEWS = {
+  iso:  {theta:-0.75, phi:0.98}, front:{theta:0, phi:1.42}, side:{theta:-1.5708, phi:1.42}, top:{theta:0, phi:0.03},
+};
+function sceneRadius(){
+  const box = new THREE.Box3();
+  for (const P of ORDER){ if (!P.mesh.visible) continue; P.mesh.geometry.computeBoundingBox();
+    box.union(P.mesh.geometry.boundingBox.clone().applyMatrix4(P.world)); }
+  return box;
+}
+function fitView(v){
+  const b = sceneRadius(), c = b.getCenter(new THREE.Vector3()), sz = b.getSize(new THREE.Vector3());
+  const rad = Math.max(sz.length() / 2, 150);
+  const fov = camera.fov * D2R, fit = rad / Math.sin(Math.min(fov, fov * camera.aspect) / 2) * 1.02;
+  const to = Object.assign({target:c, r:fit}, v ? VIEWS[v] : {});
+  animateCam(to);
+}
+function animateCam(to){
+  const from = {target:cam.target.clone(), theta:cam.theta, phi:cam.phi, r:cam.r};
+  const start = performance.now(), dur = matchMedia("(prefers-reduced-motion: reduce)").matches ? 1 : 650;
+  camAnim = now => {
+    const e = ease((now - start) / dur);
+    if (to.target) cam.target.lerpVectors(from.target, to.target, e);
+    if (to.theta !== undefined){ let d = to.theta - from.theta; d = Math.atan2(Math.sin(d), Math.cos(d)); cam.theta = from.theta + d * e; }
+    if (to.phi !== undefined) cam.phi = from.phi + (to.phi - from.phi) * e;
+    if (to.r !== undefined) cam.r = from.r + (to.r - from.r) * e;
+    if (e >= 1) camAnim = null;
+  };
+  requestRender();
+}
+(function orbit(){
+  const pts = new Map(); let last = null, pinch = null;
+  canvas.addEventListener("contextmenu", e => e.preventDefault());
+  canvas.addEventListener("pointerdown", e => { canvas.setPointerCapture(e.pointerId); pts.set(e.pointerId, {x:e.clientX, y:e.clientY, b:e.button, s:e.shiftKey}); camAnim = null; });
+  canvas.addEventListener("pointerup", e => { pts.delete(e.pointerId); pinch = null; });
+  canvas.addEventListener("pointercancel", e => { pts.delete(e.pointerId); pinch = null; });
+  canvas.addEventListener("pointermove", e => {
+    const p = pts.get(e.pointerId); if (!p) return;
+    const dx = e.clientX - p.x, dy = e.clientY - p.y; p.x = e.clientX; p.y = e.clientY;
+    if (pts.size === 2){
+      const [a, b] = [...pts.values()]; const d = Math.hypot(a.x - b.x, a.y - b.y);
+      if (pinch) cam.r = THREE.MathUtils.clamp(cam.r * pinch / d, 150, 9000); pinch = d;
+    } else if (p.b === 2 || p.s){
+      const k = cam.r / canvas.clientHeight * 0.9;
+      const right = new THREE.Vector3().setFromMatrixColumn(camera.matrix, 0), up = new THREE.Vector3().setFromMatrixColumn(camera.matrix, 1);
+      cam.target.addScaledVector(right, -dx * k).addScaledVector(up, dy * k);
+    } else {
+      cam.theta -= dx * 0.006; cam.phi = THREE.MathUtils.clamp(cam.phi - dy * 0.006, 0.02, 1.62);
+    }
+    requestRender();
+  });
+  canvas.addEventListener("wheel", e => { e.preventDefault(); cam.r = THREE.MathUtils.clamp(cam.r * Math.exp(e.deltaY * 0.0012), 150, 9000); requestRender(); }, {passive:false});
+})();
+
+/* ------------------------------------------------------------------ render loop */
+let needs = true, playing = false, lastNow = 0;
+function requestRender(){ needs = true; }
+function resize(){
+  const w = canvas.clientWidth, h = canvas.clientHeight;
+  if (canvas.width !== Math.round(w * renderer.getPixelRatio()) || canvas.height !== Math.round(h * renderer.getPixelRatio())){
+    renderer.setSize(w, h, false); camera.aspect = w / Math.max(h, 1); camera.updateProjectionMatrix(); needs = true;
+  }
+}
+function frame(now){
+  const dt = Math.min((now - (lastNow || now)) / 1000, .1); lastNow = now;
+  if (playing){
+    const stop = Math.min(NSTEP, Math.floor(T + 1e-6) + 1);
+    T = Math.min(T + dt / 2.6, stop);
+    if (T >= stop - 1e-6){ T = stop; if (T >= NSTEP || !$("#play").dataset.all) { playing = false; } }
+    syncUI(); needs = true;
+  }
+  if (camAnim){ camAnim(now); needs = true; }
+  resize();
+  if (needs){ pose(); placeCamera(); renderer.render(scene, camera); needs = false; }
+  requestAnimationFrame(frame);
+}
+
+/* ------------------------------------------------------------------ UI */
+const slider = $("#t"); slider.max = NSTEP;
+const ticks = $("#ticks");
+for (let i = 0; i <= NSTEP; i++){ const el = document.createElement("i"); el.style.left = (i / NSTEP * 100) + "%"; ticks.appendChild(el); }
+const list = $("#steps"); let lastGroup = null;
+STEPS.forEach((st, i) => {
+  if (st.g !== lastGroup){ const g = document.createElement("li"); g.className = "grp"; g.textContent = st.g; list.appendChild(g); lastGroup = st.g; }
+  const li = document.createElement("li"); const b = document.createElement("button"); b.type = "button";
+  b.innerHTML = `<span class="n">${String(i).padStart(2, "0")}</span><span></span>`; b.lastChild.textContent = st.t;
+  b.addEventListener("click", () => goStep(i)); li.appendChild(b); list.appendChild(li); st.btn = b;
+});
+function curStep(){ return Math.min(NSTEP, Math.ceil(T - 1e-6)); }
+function syncUI(){
+  slider.value = T;
+  const s = curStep();
+  $("#stepNum").textContent = `${s} / ${NSTEP}`;
+  $("#stepTitle").textContent = STEPS[s].t; $("#stepDesc").textContent = STEPS[s].d;
+  STEPS.forEach((st, i) => { st.btn.classList.toggle("active", i === s); st.btn.classList.toggle("done", i < s); });
+  $("#play").textContent = playing ? "❚❚ Пауза" : (T >= NSTEP ? "↺ Сначала" : (T === 0 ? "▶ Собрать" : "▶ Дальше"));
+}
+function goStep(i){
+  i = Math.max(0, Math.min(NSTEP, i));
+  if (i === Math.round(T) + 1 && Number.isInteger(+T.toFixed(6))){ playing = true; $("#play").dataset.all = ""; }
+  else { T = i; playing = false; }
+  syncUI(); requestRender();
+}
+slider.addEventListener("input", () => { T = +slider.value; playing = false; syncUI(); requestRender(); });
+$("#prev").addEventListener("click", () => { playing = false; goStep(Math.ceil(T - 1e-6) - 1); });
+$("#next").addEventListener("click", () => { const s = Math.floor(T + 1e-6); T = s; goStep(s + 1); });
+$("#play").addEventListener("click", () => {
+  if (playing){ playing = false; syncUI(); return; }
+  if (T >= NSTEP) T = 0;
+  $("#play").dataset.all = "1"; playing = true; syncUI();
+});
+$("#lid").addEventListener("input", e => { LID = +e.target.value; $("#lidVal").textContent = Math.round(LID * 125) + "°"; requestRender(); });
+document.querySelectorAll(".views button").forEach(b => b.addEventListener("click", () => fitView(b.dataset.view === "fit" ? null : b.dataset.view)));
+$("#texMode").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  document.querySelectorAll("#texMode button").forEach(x => x.setAttribute("aria-pressed", String(x === b)));
+  for (const k in SHEETS){ SHEETS[k].mode = b.dataset.mode; setTexture(k); }
+});
+function upload(k, file){
+  if (!file) return;
+  const url = URL.createObjectURL(file), img = new Image();
+  img.onload = () => {
+    const S = SHEETS[k], ar = (img.naturalWidth || 1) / (img.naturalHeight || 1), want = S.art.w / S.art.h;
+    S.custom = imageToCanvas(img, S.art); S.mode = "custom"; setTexture(k); URL.revokeObjectURL(url);
+    document.querySelectorAll("#texMode button").forEach(x => x.setAttribute("aria-pressed", "false"));
+    if (Math.abs(ar / want - 1) > 0.02) toast(`Пропорции файла ${ar.toFixed(3)}, а у артборда ${want.toFixed(3)} — картинка растянута. Экспортируйте весь артборд шаблона.`);
+    else toast("Дизайн наложен на модель.");
+  };
+  img.onerror = () => { URL.revokeObjectURL(url); toast("Не получилось прочитать файл. Нужен PNG, JPG или SVG."); };
+  img.src = url;
+}
+$("#upBox").addEventListener("change", e => upload("box", e.target.files[0]));
+$("#upIns").addEventListener("change", e => upload("insert", e.target.files[0]));
+$("#showIns").addEventListener("change", e => { SHEETS.insert.group.visible = e.target.checked; for (const P of ORDER) if (P.sheet === SHEETS.insert) P.mesh.visible = e.target.checked; requestRender(); });
+const f1 = n => n.toFixed(1).replace(".", ",");
+$("#artBox").textContent = `${f1(SHEETS.box.art.w)} × ${f1(SHEETS.box.art.h)}`;
+$("#artIns").textContent = `${f1(SHEETS.insert.art.w)} × ${f1(SHEETS.insert.art.h)}`;
+document.addEventListener("keydown", e => {
+  if (e.target.matches("input[type=range]")) return;
+  if (e.key === "ArrowRight") $("#next").click(); else if (e.key === "ArrowLeft") $("#prev").click();
+  else if (e.key === " " && e.target === document.body){ e.preventDefault(); $("#play").click(); }
+});
+new MutationObserver(() => { applyTheme(); requestRender(); }).observe(document.documentElement, {attributes:true, attributeFilter:["data-theme"]});
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { applyTheme(); requestRender(); });
+
+applyTheme(); syncUI(); pose(); resize(); placeCamera();
+fitView("iso");
+Promise.all([setTexture("box"), setTexture("insert")]).finally(() => { $("#loading").hidden = true; requestRender(); });
+requestAnimationFrame(frame);
+window.__capbox = {setT:v => { T = v; LID = 0; syncUI(); pose(); requestRender(); }, setLid:v => { LID = v; requestRender(); }, cam, fitView, PANELS, render:() => { pose(); placeCamera(); renderer.render(scene, camera); }};
+</script>
