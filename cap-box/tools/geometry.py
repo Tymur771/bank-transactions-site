@@ -180,6 +180,88 @@ def box_panels():
 
 
 # --------------------------------------------------------------------------
+# BOX Rev I: same box, but the side split starts STEP mm in front of the back
+# wall.  Behind that point the base side wall runs at full height (a step), so
+# the base hides the insert, whose top-front corner stands ~53 mm in front of
+# the back wall at ~197 mm.  Everything else (bottom, back, lid top/front, lip,
+# ears, slots) is unchanged; the side walls, both liners and the lid ears are
+# recomputed for the new fold line.
+# --------------------------------------------------------------------------
+REV_I = dict(step=60.0, wall_top=196.0, seam=4.87)
+
+
+def _refl(p, a, b):
+    ax, ay = a
+    ux, uy = b[0] - a[0], b[1] - a[1]
+    n = math.hypot(ux, uy)
+    ux, uy = ux / n, uy / n
+    vx, vy = p[0] - ax, p[1] - ay
+    t = vx * ux + vy * uy
+    return (ax + 2 * t * ux - vx, ay + 2 * t * uy - vy)
+
+
+def box_panels_rev_i(step=REV_I["step"], wall_top=REV_I["wall_top"], seam=REV_I["seam"]):
+    """Rev I panels.  Works in 'wall' coordinates: d = depth from the back
+    crease, h = height above the bottom crease (base side wall), and the same
+    for the lid side (d from the lid/back hinge, h above the bottom crease when
+    closed, lid crease at h = 197.5)."""
+    P = [dict(p) for p in box_panels()]
+    by = {p["id"]: p for p in P}
+    H_LID = 197.5
+    # base wall <-> sheet (left side)
+    W = lambda p: (p[1] - 726.32, 295.73 - p[0])
+    Wi = lambda q: [round(295.73 - q[1], 2), round(q[0] + 726.32, 2)]
+    # lid side <-> sheet (left side)
+    Lw = lambda p: (528.82 - p[1], H_LID - (295.73 - p[0]))
+    Li = lambda q: [round(295.73 - (H_LID - q[1]), 2), round(528.82 - q[0], 2)]
+
+    lid_front = (225.46, 39.92)              # unchanged: lid front / lid ear stay as in Rev H
+    # base front point chosen so the seam (perpendicular gap) stays as in Rev H
+    hb = 33.63
+    for _ in range(30):
+        k = (wall_top - hb) / (225.95 - step)
+        gv = seam * math.sqrt(1 + k * k)
+        hb = lid_front[1] - k * (225.95 - lid_front[0]) - gv
+    k = (wall_top - hb) / (225.95 - step)
+    gv = seam * math.sqrt(1 + k * k)
+    base_a, base_b = (step, wall_top), (225.95, hb)          # base fold line (wall coords)
+    lid_line = lambda d: lid_front[1] + k * (lid_front[0] - d)  # lid fold line, h(d)
+    d_lid_end = lid_front[0] - (H_LID - lid_front[1]) / k       # where it meets the lid crease
+    lid_a, lid_b = (d_lid_end, H_LID), lid_front
+
+    # --- base side wall with the step
+    wall = [(0, 0), (0, wall_top), base_a, base_b, (225.95, 24.92), (229.78, 24.92), (229.78, 0)]
+    # --- side liner, as it lies when folded (same insets/tabs as Rev H)
+    liner_top = wall_top - 1.5
+    d_lt = step + (wall_top - liner_top) / k
+    folded = [(d_lt, liner_top), (1.54, liner_top), (1.52, 1.56), (49.96, 1.55), (51.46, -1.70),
+              (78.47, -1.70), (79.97, 1.55), (138.16, 1.54), (139.66, -1.70), (166.65, -1.71),
+              (168.15, 1.55), (225.94, 1.54), base_b]
+    liner = [_refl(q, base_a, base_b) for q in folded]
+    # --- lid side, lid liner and lid ear
+    lside = [(229.79, H_LID), (229.79, 39.66), (225.96, 39.66), lid_front, lid_a]
+    lliner_folded = [(lid_front[0] - (195.21 - lid_front[1]) / k, 195.21), (229.79, 195.22), (229.79, 39.67), lid_front]
+    lliner = [_refl(q, lid_a, lid_b) for q in lliner_folded]
+    lear_folded = [(229.79, 194.71), (229.79, 40.45), (260.79, 40.46), (263.79, 43.45), (263.80, 191.71), (260.79, 194.71)]
+    lear = [_refl(q, lid_a, lid_b) for q in lear_folded]
+
+    for s, m in (("L", lambda p: p), ("R", lambda p: mirror(p, BXM / 2))):
+        by["side" + s]["poly"] = m([Wi(q) for q in wall])
+        by["sideliner" + s]["poly"] = m([Wi(q) for q in liner])
+        by["sideliner" + s]["hinge"] = m([Wi(folded[0]), Wi(base_b)])
+        by["lidside" + s]["poly"] = m([Li(q) for q in lside])
+        by["lidside" + s]["hinge"] = m([[295.73, 299.03], Li(lid_a)])
+        by["lidliner" + s]["poly"] = m([Li(q) for q in lliner])
+        by["lidliner" + s]["hinge"] = m([Li(lid_b), Li(lliner_folded[0])])
+        by["lidear" + s]["poly"] = m([Li(q) for q in lear])
+        by["lidear" + s]["hinge"] = m([Li(lear[0]), Li(lear[1])])
+    info = dict(step=step, wall_top=wall_top, slope_deg=math.degrees(math.atan(k)), base_front=hb,
+                seam_vertical=gv, lid_end=d_lid_end, base_line=[Wi(base_a), Wi(base_b)],
+                lid_line=[Li(lid_a), Li(lid_b)])
+    return P, info
+
+
+# --------------------------------------------------------------------------
 # INSERT (Rev C).  Main panel x 411.77..613.78, centre 512.775
 # --------------------------------------------------------------------------
 IXM = 1025.55

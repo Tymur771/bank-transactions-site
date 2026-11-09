@@ -24,7 +24,9 @@ from shapely.ops import unary_union
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, HERE)
-from geometry import read_pdf, box_panels, insert_panels, r2  # noqa: E402
+from geometry import read_pdf, box_panels, box_panels_rev_i, insert_panels, r2  # noqa: E402
+from dieline import dieline_from_panels  # noqa: E402
+from drawing import write_drawing  # noqa: E402
 
 SRC_BOX = os.path.join(ROOT, "source", "MFC-box-RevH-glueless-Eflute.pdf")
 SRC_INS = os.path.join(ROOT, "source", "MFC-insert-RevC.pdf")
@@ -400,13 +402,30 @@ def main():
         body += "<g>%s</g>" % "\n".join(g)
         return svg_doc(info["art"], body, "template")
 
+    # ---- Rev I: step at the back of the side split (no source PDF: die-line built from the panels)
+    pI, infoI = box_panels_rev_i()
+    raw_I = dieline_from_panels(pI)
+    iI = sheet_info(pI, {"bleed": []})
+    write_drawing(pI, raw_I, infoI, os.path.join(ROOT, "print", "MFC-box-RevI-step_dieline.svg"), iI["outline"], iI["bleed"])
+    to_pdf(os.path.join(ROOT, "print", "MFC-box-RevI-step_dieline.svg"), os.path.join(ROOT, "print", "MFC-box-RevI-step_dieline.pdf"))
+    write_template("MFC-box-RevI_design-template", raw_I, pI, iI, [
+        "MFC — CAP BOX · Rev I (уступ %s мм) · шаблон для дизайна (вид с лицевой стороны, 1:1, мм)" % fmt(infoI["step"]),
+        "Артборд %s × %s мм. Рисуйте в слое ARTWORK, фон тяните до пунктира BLEED (+3 мм)." % (fmt(iI["art"]["w"]), fmt(iI["art"]["h"])),
+        "Текст и логотипы — внутри голубой SAFE-зоны (3 мм от высечки и биговки). Стрелка ВЕРХ = верх на собранной коробке.",
+        "Слои CUT / CREASE / SAFE / BLEED / подсказки — технические, перед печатью скрыть (высечку даёт фабрика).",
+    ], os.path.join(ROOT, "print"))
+    cI = write_concept("MFC-box-RevI_concept", raw_I, pI, iI, concept_box, os.path.join(ROOT, "design"))
+    print("Rev I", {k: (round(v, 2) if isinstance(v, float) else v) for k, v in infoI.items()})
+
     geo = dict(
-        box=dict(panels=panel_json(pb), art=ib["art"], thickness=1.5),
+        box={"H": dict(panels=panel_json(pb), art=ib["art"], thickness=1.5),
+             "I": dict(panels=panel_json(pI), art=iI["art"], thickness=1.5, step=infoI["step"])},
         insert=dict(panels=panel_json(pi), art=ii["art"], thickness=0.9),
     )
     json.dump(geo, open(os.path.join(ROOT, "data", "geometry.json"), "w"), ensure_ascii=False)
     textures = dict(
-        box=dict(concept=cb, template=outline_template(raw_b, pb, ib)),
+        box={"H": dict(concept=cb, template=outline_template(raw_b, pb, ib)),
+             "I": dict(concept=cI, template=outline_template(raw_I, pI, iI))},
         insert=dict(concept=ci, template=outline_template(raw_i, pi, ii)),
     )
     src = open(os.path.join(HERE, "viewer.src.html"), encoding="utf-8").read()

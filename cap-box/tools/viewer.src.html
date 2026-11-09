@@ -95,7 +95,7 @@ button:focus-visible,input:focus-visible,label.btn:focus-within{outline:2px soli
     <div class="loading" id="loading">Загружаю 3D…</div>
     <div class="hud">
       <div class="brand">MFC · Cap Box</div>
-      <div class="meta">Коробка Rev H · E-гофра 1,5 мм · без клея<br>Вкладыш Rev C · F-гофра</div>
+      <div class="meta"><span id="revMeta">Коробка Rev I · уступ 60 мм</span> · E-гофра 1,5 мм · без клея<br>Вкладыш Rev C · F-гофра</div>
     </div>
     <div class="hint">Тяните — вращать · колесо / щипок — масштаб · правая кнопка или Shift — сдвиг</div>
     <div class="views" role="group" aria-label="Ракурс">
@@ -129,6 +129,15 @@ button:focus-visible,input:focus-visible,label.btn:focus-within{outline:2px soli
       </section>
 
       <section class="field">
+        <div class="eyebrow">Ревизия коробки</div>
+        <div class="seg" role="group" aria-label="Ревизия коробки" id="revSeg">
+          <button type="button" data-rev="I" aria-pressed="true">Rev I · уступ 60 мм</button>
+          <button type="button" data-rev="H" aria-pressed="false">Rev H · из угла</button>
+        </div>
+        <p class="note" id="revNote"></p>
+      </section>
+
+      <section class="field">
         <div class="row"><label for="lid">Открыть крышку</label><span class="mono" id="lidVal">0°</span></div>
         <input class="lid" type="range" id="lid" min="0" max="1" step="0.001" value="0">
       </section>
@@ -141,9 +150,9 @@ button:focus-visible,input:focus-visible,label.btn:focus-within{outline:2px soli
       <section class="field">
         <div class="eyebrow">Печать на модели</div>
         <div class="seg" role="group" aria-label="Что показать на картоне" id="texMode">
-          <button type="button" data-mode="concept" aria-pressed="true">Концепт</button>
+          <button type="button" data-mode="concept" aria-pressed="false">Концепт</button>
           <button type="button" data-mode="template" aria-pressed="false">Шаблон</button>
-          <button type="button" data-mode="plain" aria-pressed="false">Белый картон</button>
+          <button type="button" data-mode="plain" aria-pressed="true">Белый картон</button>
         </div>
         <div class="uploads">
           <label class="btn" for="upBox">Свой дизайн: коробка<input type="file" id="upBox" accept="image/png,image/jpeg,image/svg+xml"></label>
@@ -158,7 +167,7 @@ button:focus-visible,input:focus-visible,label.btn:focus-within{outline:2px soli
         <dl class="dims">
           <dt>Снаружи</dt><dd>218,2 × 233,6 × 199 мм</dd>
           <dt>Внутри</dt><dd>206 × 226 × 196 мм</dd>
-          <dt>Лист коробки</dt><dd>728,1 × 947,6 мм</dd>
+          <dt>Лист коробки</dt><dd id="sheetDim">731,6 × 947,6 мм</dd>
           <dt>Лист вкладыша</dt><dd>945,1 × 368,6 мм</dd>
           <dt>Наклон панели</dt><dd>65° · 217 мм</dd>
         </dl>
@@ -213,6 +222,7 @@ const $ = s => document.querySelector(s);
 const cssVar = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 const ease = x => x <= 0 ? 0 : x >= 1 ? 1 : x * x * (3 - 2 * x);
 const D2R = Math.PI / 180;
+const f1 = n => n.toFixed(1).replace(".", ",");
 function toast(msg){const el=$("#toast");el.textContent=msg;el.hidden=false;clearTimeout(toast._t);toast._t=setTimeout(()=>el.hidden=true,4200);}
 
 if (!window.THREE) { $("#loading").textContent = "Не удалось загрузить three.js — проверьте подключение к интернету."; throw new Error("three missing"); }
@@ -250,10 +260,17 @@ const SHEETS = {
   box:   {origin:[404.06, 842.355], inner:"#c7aa78", edge:"#a8895a", group:new THREE.Group()},
   insert:{origin:[512.78, 337.19],  inner:"#e9e6df", edge:"#cfcabe", group:new THREE.Group()},
 };
+let REV = "I";
+const REV_INFO = {
+  I:{meta:"Коробка Rev I · уступ 60 мм", sheet:"731,6 × 947,6 мм",
+     note:"Боковина основы держит полную высоту 196 мм на 60 мм от задней стенки, дальше диагональ 44,6° к тому же переднему борту. Вкладыш закрыт стенками основы."},
+  H:{meta:"Коробка Rev H · из угла", sheet:"728,1 × 947,6 мм",
+     note:"Исходный чертёж: диагональ начинается из заднего верхнего угла (35°), верх вкладыша выглядывает над стенкой основы."},
+};
 for (const k in SHEETS){
-  const S = SHEETS[k]; Object.assign(S, GEO[k]); scene.add(S.group);
+  const S = SHEETS[k]; Object.assign(S, k === "box" ? GEO.box[REV] : GEO[k]); scene.add(S.group);
   S.printMat = new THREE.MeshStandardMaterial({color:0xffffff, roughness:.62, metalness:0});
-  S.mode = "concept"; S.custom = null;
+  S.mode = "plain"; S.custom = null;
 }
 
 function svgToCanvas(svgText, art){
@@ -282,8 +299,8 @@ async function setTexture(k){
   let cnv = null;
   if (S.mode === "custom" && S.custom) cnv = S.custom;
   else if (S.mode === "concept" || S.mode === "template"){
-    const key = k + S.mode;
-    if (!texCache[key]) texCache[key] = await svgToCanvas(TEX[k][S.mode], S.art);
+    const key = k + (k === "box" ? REV : "") + S.mode;
+    if (!texCache[key]) texCache[key] = await svgToCanvas(k === "box" ? TEX.box[REV][S.mode] : TEX[k][S.mode], S.art);
     cnv = texCache[key];
   }
   if (S.printMat.map) S.printMat.map.dispose();
@@ -358,11 +375,32 @@ function buildPanel(p, S){
 }
 
 const PANELS = {}, ORDER = [];
-for (const k in SHEETS){
+function buildSheet(k){
   for (const p of SHEETS[k].panels){
     const P = buildPanel(p, SHEETS[k]);
     P.parentId = p.parent; P.lift = p.lift; PANELS[p.id] = P; ORDER.push(P);
   }
+}
+buildSheet("box"); buildSheet("insert");
+function setRev(rev){
+  if (rev === REV) return;
+  REV = rev;
+  const S = SHEETS.box;
+  for (let i = ORDER.length - 1; i >= 0; i--){
+    const P = ORDER[i]; if (P.sheet !== S) continue;
+    S.group.remove(P.mesh); P.mesh.geometry.dispose(); P.inner.dispose(); P.mesh.material[2].dispose();
+    delete PANELS[P.id]; ORDER.splice(i, 1);
+  }
+  Object.assign(S, GEO.box[rev]); S.custom = S.mode === "custom" ? S.custom : null;
+  buildSheet("box");
+  if (S.mode === "custom") S.mode = "plain";
+  setTexture("box"); syncRev(); requestRender();
+}
+function syncRev(){
+  document.querySelectorAll("#revSeg button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.rev === REV)));
+  $("#revMeta").textContent = REV_INFO[REV].meta; $("#sheetDim").textContent = REV_INFO[REV].sheet;
+  $("#revNote").textContent = REV_INFO[REV].note;
+  $("#artBox").textContent = `${f1(SHEETS.box.art.w)} × ${f1(SHEETS.box.art.h)}`;
 }
 const PETALS = ORDER.filter(P => P.id.startsWith("petal")).map(P => P.id);
 
@@ -587,7 +625,7 @@ function upload(k, file){
 $("#upBox").addEventListener("change", e => upload("box", e.target.files[0]));
 $("#upIns").addEventListener("change", e => upload("insert", e.target.files[0]));
 $("#showIns").addEventListener("change", e => { SHEETS.insert.group.visible = e.target.checked; for (const P of ORDER) if (P.sheet === SHEETS.insert) P.mesh.visible = e.target.checked; requestRender(); });
-const f1 = n => n.toFixed(1).replace(".", ",");
+$("#revSeg").addEventListener("click", e => { const b = e.target.closest("button"); if (b) setRev(b.dataset.rev); });
 $("#artBox").textContent = `${f1(SHEETS.box.art.w)} × ${f1(SHEETS.box.art.h)}`;
 $("#artIns").textContent = `${f1(SHEETS.insert.art.w)} × ${f1(SHEETS.insert.art.h)}`;
 document.addEventListener("keydown", e => {
@@ -598,9 +636,9 @@ document.addEventListener("keydown", e => {
 new MutationObserver(() => { applyTheme(); requestRender(); }).observe(document.documentElement, {attributes:true, attributeFilter:["data-theme"]});
 matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { applyTheme(); requestRender(); });
 
-applyTheme(); syncUI(); pose(); resize(); placeCamera();
+applyTheme(); syncUI(); syncRev(); pose(); resize(); placeCamera();
 fitView("iso");
 Promise.all([setTexture("box"), setTexture("insert")]).finally(() => { $("#loading").hidden = true; requestRender(); });
 requestAnimationFrame(frame);
-window.__capbox = {setT:v => { T = v; LID = 0; syncUI(); pose(); requestRender(); }, setLid:v => { LID = v; requestRender(); }, cam, fitView, PANELS, render:() => { pose(); placeCamera(); renderer.render(scene, camera); }};
+window.__capbox = {setRev, setT:v => { T = v; LID = 0; syncUI(); pose(); requestRender(); }, setLid:v => { LID = v; requestRender(); }, cam, fitView, PANELS, render:() => { pose(); placeCamera(); renderer.render(scene, camera); }};
 </script>
