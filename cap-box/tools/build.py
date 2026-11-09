@@ -262,6 +262,24 @@ def write_template(name, raw, panels, info, title_lines, outdir):
 
 
 def to_pdf(svg_path, pdf_path):
+    # Chromium first (honours clip paths, e.g. the cropped logo in "Big Mark"); PyMuPDF as a fallback
+    import subprocess
+    try:
+        env = dict(os.environ, NODE_PATH=subprocess.run(["npm", "root", "-g"], capture_output=True, text=True).stdout.strip())
+        subprocess.run(["node", os.path.join(HERE, "svg2pdf.js"), svg_path, pdf_path], check=True, env=env,
+                       capture_output=True, timeout=120)
+        # Chromium rounds the page to whole CSS pixels: crop back to the exact artboard size
+        import re as _re
+        head = open(svg_path).read(2000)
+        w = float(_re.search(r'width="([\d.]+)mm"', head).group(1)) * 72 / 25.4
+        h = float(_re.search(r'height="([\d.]+)mm"', head).group(1)) * 72 / 25.4
+        d = pymupdf.open(pdf_path)
+        d[0].set_cropbox(pymupdf.Rect(0, 0, w, h))
+        d.save(pdf_path + ".tmp", garbage=3, deflate=True)
+        os.replace(pdf_path + ".tmp", pdf_path)
+        return
+    except Exception as e:  # noqa: BLE001
+        print("chromium pdf failed, using pymupdf:", os.path.basename(svg_path), e)
     doc = pymupdf.open(svg_path)
     pdf = pymupdf.open("pdf", doc.convert_to_pdf())
     pdf.set_metadata({"title": os.path.basename(pdf_path), "creator": "cap-box/tools/build.py"})
@@ -419,23 +437,36 @@ def main():
     ], os.path.join(ROOT, "print"))
     print("Rev I", {k: (round(v, 2) if isinstance(v, float) else v) for k, v in infoI.items()})
 
-    # ---- design v1 (client mood shots): box outside, inside of the lid, insert
-    import design_v1 as D1
+    # ---- designs: the chosen one (v1.1 "Stone") goes into the 3D viewer, the others are proposals
+    import designs as DS
+    from functools import partial
+
+    def write_design(v, outdir, tag):
+        os.makedirs(outdir, exist_ok=True)
+        o = partial(DS.box_outside, v); n_ = partial(DS.box_inside, v); s_ = partial(DS.insert_art, v)
+        dI_ = write_concept("MFC-box-RevI_%s_outside" % tag, raw_I, pI, iI, o, outdir)
+        dIn_ = write_concept("MFC-box-RevI_%s_inside" % tag, raw_I, pI, iI, n_, outdir)
+        for ext in (".svg", ".pdf"):   # the un-mirrored outline copy is only for the 3D texture
+            os.remove(os.path.join(outdir, "MFC-box-RevI_%s_inside_outlined%s" % (tag, ext)))
+        dIns_ = write_concept("MFC-insert-RevC_%s" % tag, raw_i, pi, ii, s_, outdir)
+        a = iI["art"]          # inside print as the printer sees it: reverse side of the sheet = mirrored
+        mir = svg_doc(a, '<g transform="translate(%s 0) scale(-1 1)">%s%s</g>' % (
+            fmt(2 * a["x"] + a["w"]), n_(pI, iI, True), dieline_layers(raw_I, pI, iI)), "inside print, mirrored")
+        mp = os.path.join(outdir, "MFC-box-RevI_%s_inside_PRINT-mirrored.svg" % tag)
+        open(mp, "w").write(mir)
+        to_pdf(mp, mp[:-4] + ".pdf")
+        return dict(I=dict(design=dI_, inside=dIn_), H=dict(design=svg_doc(ib["art"], o(pb, ib, True), tag),
+                                                           inside=svg_doc(ib["art"], n_(pb, ib, True), tag)),
+                    insert=dIns_)
+
     ddir = os.path.join(ROOT, "design")
-    dI = write_concept("MFC-box-RevI_design-v1_outside", raw_I, pI, iI, D1.box_outside, ddir)
-    dIn = write_concept("MFC-box-RevI_design-v1_inside", raw_I, pI, iI, D1.box_inside, ddir)
-    for ext in (".svg", ".pdf"):   # the un-mirrored outline copy is only for the 3D texture
-        os.remove(os.path.join(ddir, "MFC-box-RevI_design-v1_inside_outlined" + ext))
-    dH = svg_doc(ib["art"], D1.box_outside(pb, ib, True), "design v1 Rev H")
-    dHn = svg_doc(ib["art"], D1.box_inside(pb, ib, True), "design v1 Rev H inside")
-    dIns = write_concept("MFC-insert-RevC_design-v1", raw_i, pi, ii, D1.insert_art, ddir)
-    # the inside print as the printer sees it (reverse side of the sheet = mirrored)
-    a = iI["art"]
-    mir = svg_doc(a, '<g transform="translate(%s 0) scale(-1 1)">%s%s</g>' % (
-        fmt(2 * a["x"] + a["w"]), D1.box_inside(pI, iI, True), dieline_layers(raw_I, pI, iI)), "inside print, mirrored")
-    mp = os.path.join(ddir, "MFC-box-RevI_design-v1_inside_PRINT-mirrored.svg")
-    open(mp, "w").write(mir)
-    to_pdf(mp, mp[:-4] + ".pdf")
+    main_tex = write_design(DS.BY_KEY["stone"], ddir, "design-v1.1")
+    dI, dIn, dH, dHn, dIns = (main_tex["I"]["design"], main_tex["I"]["inside"], main_tex["H"]["design"],
+                              main_tex["H"]["inside"], main_tex["insert"])
+    variant_tex = {}
+    if os.environ.get("CAPBOX_VARIANTS"):
+        for v in DS.VARIANTS:
+            variant_tex[v.key] = write_design(v, os.path.join(ddir, "variants", v.key), "design-%s" % v.key)
 
     geo = dict(
         box={"H": dict(panels=panel_json(pb), art=ib["art"], thickness=1.5),
@@ -452,6 +483,14 @@ def main():
     html = src.replace("/*__GEOMETRY__*/null", json.dumps(geo, ensure_ascii=False, separators=(",", ":")))
     html = html.replace("/*__TEXTURES__*/null", json.dumps(textures, ensure_ascii=False, separators=(",", ":")))
     open(os.path.join(ROOT, "index.html"), "w", encoding="utf-8").write(html)
+    vdir = os.environ.get("CAPBOX_VARIANTS")
+    for key, vt in variant_tex.items():
+        tx = dict(box={"I": dict(vt["I"], template=textures["box"]["I"]["template"]),
+                       "H": dict(vt["H"], template=textures["box"]["H"]["template"])},
+                  insert=dict(design=vt["insert"], template=textures["insert"]["template"]))
+        h2 = src.replace("/*__GEOMETRY__*/null", json.dumps(geo, ensure_ascii=False, separators=(",", ":")))
+        h2 = h2.replace("/*__TEXTURES__*/null", json.dumps(tx, ensure_ascii=False, separators=(",", ":")))
+        open(os.path.join(vdir, key + ".html"), "w", encoding="utf-8").write(h2)
     print("box artboard", ib["art"], "insert artboard", ii["art"])
     print("index.html", os.path.getsize(os.path.join(ROOT, "index.html")) // 1024, "KB")
 
