@@ -71,13 +71,17 @@ class Font:
     cache = {}
 
     def __init__(self, name):
-        self.f = TTFont(os.path.join(FONT_DIR, name))
+        local = os.path.join(ROOT, "fonts", name)
+        self.f = TTFont(local if os.path.exists(local) else os.path.join(FONT_DIR, name))
         self.gs = self.f.getGlyphSet()
         self.cmap = self.f.getBestCmap()
         self.upm = self.f["head"].unitsPerEm
-        self.family = "Inter Display" if name.startswith("InterDisplay") else "Inter"
+        self.family = ("Montserrat" if name.startswith("Montserrat") else
+                       "Cormorant Garamond" if name.startswith("Cormorant") else
+                       "Inter Display" if name.startswith("InterDisplay") else "Inter")
+        self.italic = "Italic" in name
         self.weight = {"Black": 900, "ExtraBold": 800, "Bold": 700, "SemiBold": 600, "Medium": 500,
-                       "Regular": 400, "Light": 300}[name.split("-")[1].split(".")[0]]
+                       "Regular": 400, "Light": 300}.get(name.split("-")[1].split(".")[0].replace("Italic", "") or "Regular", 400)
 
     @classmethod
     def get(cls, name):
@@ -120,8 +124,9 @@ def text_el(text, x, y, size, font="Inter-Bold.otf", fill="#000", rot=0, track=0
         dx = {"middle": -w / 2, "start": 0, "end": -w}[anchor]
         return '<path transform="%s translate(%s 0)" fill="%s"%s d="%s"/>' % (tr, fmt(dx), fill, op, F.outline(text, size, track))
     ls = ' letter-spacing="%s"' % fmt(track * size) if track else ""
-    return ('<text transform="%s" font-family="%s, Inter, Arial, sans-serif" font-weight="%d" font-size="%s"'
-            ' text-anchor="%s" fill="%s"%s%s>%s</text>') % (tr, F.family, F.weight, fmt(size), anchor, fill, ls, op,
+    style = ' font-style="italic"' if F.italic else ""
+    return ('<text transform="%s" font-family="%s, Inter, Arial, sans-serif" font-weight="%d"%s font-size="%s"'
+            ' text-anchor="%s" fill="%s"%s%s>%s</text>') % (tr, F.family, F.weight, style, fmt(size), anchor, fill, ls, op,
                                                             text.replace("&", "&amp;").replace("<", "&lt;"))
 
 
@@ -382,8 +387,6 @@ def main():
         "Артборд %s × %s мм. Видна только лицевая сторона основной панели, лепестки и клапаны." % (fmt(ii["art"]["w"]), fmt(ii["art"]["h"])),
         "Крылья складываются назад в трубы-опоры — их печать не видна.",
     ], os.path.join(ROOT, "print"))
-    cb = write_concept("MFC-box_concept", raw_b, pb, ib, concept_box, os.path.join(ROOT, "design"))
-    ci = write_concept("MFC-insert_concept", raw_i, pi, ii, concept_insert, os.path.join(ROOT, "design"))
 
     # outlined template copies for the viewer (no live text so the browser renders them identically)
     def outline_template(raw, panels, info):
@@ -414,8 +417,25 @@ def main():
         "Текст и логотипы — внутри голубой SAFE-зоны (3 мм от высечки и биговки). Стрелка ВЕРХ = верх на собранной коробке.",
         "Слои CUT / CREASE / SAFE / BLEED / подсказки — технические, перед печатью скрыть (высечку даёт фабрика).",
     ], os.path.join(ROOT, "print"))
-    cI = write_concept("MFC-box-RevI_concept", raw_I, pI, iI, concept_box, os.path.join(ROOT, "design"))
     print("Rev I", {k: (round(v, 2) if isinstance(v, float) else v) for k, v in infoI.items()})
+
+    # ---- design v1 (client mood shots): box outside, inside of the lid, insert
+    import design_v1 as D1
+    ddir = os.path.join(ROOT, "design")
+    dI = write_concept("MFC-box-RevI_design-v1_outside", raw_I, pI, iI, D1.box_outside, ddir)
+    dIn = write_concept("MFC-box-RevI_design-v1_inside", raw_I, pI, iI, D1.box_inside, ddir)
+    for ext in (".svg", ".pdf"):   # the un-mirrored outline copy is only for the 3D texture
+        os.remove(os.path.join(ddir, "MFC-box-RevI_design-v1_inside_outlined" + ext))
+    dH = svg_doc(ib["art"], D1.box_outside(pb, ib, True), "design v1 Rev H")
+    dHn = svg_doc(ib["art"], D1.box_inside(pb, ib, True), "design v1 Rev H inside")
+    dIns = write_concept("MFC-insert-RevC_design-v1", raw_i, pi, ii, D1.insert_art, ddir)
+    # the inside print as the printer sees it (reverse side of the sheet = mirrored)
+    a = iI["art"]
+    mir = svg_doc(a, '<g transform="translate(%s 0) scale(-1 1)">%s%s</g>' % (
+        fmt(2 * a["x"] + a["w"]), D1.box_inside(pI, iI, True), dieline_layers(raw_I, pI, iI)), "inside print, mirrored")
+    mp = os.path.join(ddir, "MFC-box-RevI_design-v1_inside_PRINT-mirrored.svg")
+    open(mp, "w").write(mir)
+    to_pdf(mp, mp[:-4] + ".pdf")
 
     geo = dict(
         box={"H": dict(panels=panel_json(pb), art=ib["art"], thickness=1.5),
@@ -424,9 +444,9 @@ def main():
     )
     json.dump(geo, open(os.path.join(ROOT, "data", "geometry.json"), "w"), ensure_ascii=False)
     textures = dict(
-        box={"H": dict(concept=cb, template=outline_template(raw_b, pb, ib)),
-             "I": dict(concept=cI, template=outline_template(raw_I, pI, iI))},
-        insert=dict(concept=ci, template=outline_template(raw_i, pi, ii)),
+        box={"H": dict(design=dH, inside=dHn, template=outline_template(raw_b, pb, ib)),
+             "I": dict(design=dI, inside=dIn, template=outline_template(raw_I, pI, iI))},
+        insert=dict(design=dIns, template=outline_template(raw_i, pi, ii)),
     )
     src = open(os.path.join(HERE, "viewer.src.html"), encoding="utf-8").read()
     html = src.replace("/*__GEOMETRY__*/null", json.dumps(geo, ensure_ascii=False, separators=(",", ":")))

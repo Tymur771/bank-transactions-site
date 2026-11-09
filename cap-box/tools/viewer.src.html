@@ -7,17 +7,17 @@
 /* Layout: full-bleed 3D stage, a die-line style control rail on the right (bottom sheet on phones).
    Colour vocabulary comes from the die-line itself: cut red, crease blue, board kraft. */
 :root{
-  --bg:#e9ecea; --stage:#e3e6e3; --panel:#fbfcfb; --fg:#191c1e; --muted:#62686d; --line:#d3d8d5;
+  --bg:#e9ecea; --stage:#e6e1d9; --panel:#fbfcfb; --fg:#191c1e; --muted:#62686d; --line:#d3d8d5;
   --crease:#0a6fd6; --cut:#d8173a; --kraft:#b8965f; --chip:#eef1ef;
   --f-display:"Unbounded","Arial Black",system-ui,sans-serif;
   --f-body:"Onest",system-ui,-apple-system,"Segoe UI",sans-serif;
   --f-mono:"JetBrains Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
 }
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
-  --bg:#121517; --stage:#16191c; --panel:#1b1f22; --fg:#e7eaec; --muted:#98a0a6; --line:#2c3236;
+  --bg:#121517; --stage:#2a2723; --panel:#1b1f22; --fg:#e7eaec; --muted:#98a0a6; --line:#2c3236;
   --crease:#4c9df2; --cut:#ff4d6a; --kraft:#c9a873; --chip:#23282c; color-scheme:dark}}
 :root[data-theme="dark"]{
-  --bg:#121517; --stage:#16191c; --panel:#1b1f22; --fg:#e7eaec; --muted:#98a0a6; --line:#2c3236;
+  --bg:#121517; --stage:#2a2723; --panel:#1b1f22; --fg:#e7eaec; --muted:#98a0a6; --line:#2c3236;
   --crease:#4c9df2; --cut:#ff4d6a; --kraft:#c9a873; --chip:#23282c; color-scheme:dark}
 [hidden]{display:none!important}
 html,body{height:100%}
@@ -139,7 +139,10 @@ button:focus-visible,input:focus-visible,label.btn:focus-within{outline:2px soli
 
       <section class="field">
         <div class="row"><label for="lid">Открыть крышку</label><span class="mono" id="lidVal">0°</span></div>
-        <input class="lid" type="range" id="lid" min="0" max="1" step="0.001" value="0">
+        <input class="lid" type="range" id="lid" min="0" max="1" step="0.001" value="0.85">
+        <div class="row"><label for="pet">Лепестки арки — кепка надета</label><span class="mono" id="petVal">0°</span></div>
+        <input class="lid" type="range" id="pet" min="0" max="1" step="0.001" value="0">
+        <p class="note">Лепестки стоят в плоскости панели и чуть уходят внутрь, когда на арку надевают кепку (до 30°).</p>
       </section>
 
       <section>
@@ -150,15 +153,16 @@ button:focus-visible,input:focus-visible,label.btn:focus-within{outline:2px soli
       <section class="field">
         <div class="eyebrow">Печать на модели</div>
         <div class="seg" role="group" aria-label="Что показать на картоне" id="texMode">
-          <button type="button" data-mode="concept" aria-pressed="false">Концепт</button>
+          <button type="button" data-mode="design" aria-pressed="true">Дизайн v1</button>
           <button type="button" data-mode="template" aria-pressed="false">Шаблон</button>
-          <button type="button" data-mode="plain" aria-pressed="true">Белый картон</button>
+          <button type="button" data-mode="plain" aria-pressed="false">Без печати</button>
         </div>
         <div class="uploads">
           <label class="btn" for="upBox">Свой дизайн: коробка<input type="file" id="upBox" accept="image/png,image/jpeg,image/svg+xml"></label>
           <label class="btn" for="upIns">Свой дизайн: вкладыш<input type="file" id="upIns" accept="image/png,image/jpeg,image/svg+xml"></label>
         </div>
         <p class="note">Экспортируйте весь артборд шаблона (<span class="mono" id="artBox"></span> мм для коробки, <span class="mono" id="artIns"></span> мм для вкладыша) в PNG/JPG — картинка ляжет на модель точно по высечке.</p>
+        <div class="row"><label for="inPrint">Печать внутри крышки (двусторонняя)</label><input type="checkbox" id="inPrint" checked></div>
         <div class="row"><label for="showIns">Показывать вкладыш</label><input type="checkbox" id="showIns" checked></div>
       </section>
 
@@ -172,7 +176,7 @@ button:focus-visible,input:focus-visible,label.btn:focus-within{outline:2px soli
           <dt>Наклон панели</dt><dd>65° · 217 мм</dd>
         </dl>
         <div class="legend">
-          <span class="sw kraft"></span><span>Внутренняя сторона картона (крафт)</span>
+          <span class="sw kraft"></span><span>Внутренняя сторона без печати (крафт)</span>
           <span class="sw crease"></span><span>Подсветка — панели, которые гнутся на этом шаге</span>
         </div>
       </section>
@@ -202,8 +206,8 @@ const STEPS = [
   {g:"Вкладыш", t:"Крылья вкладыша — в трубы", d:"Крылья складываются назад в две трубы-опоры: боковая стенка, задняя стенка трубы (100 мм), внутренняя стенка и замок. Внутренние стенки встречаются по центру, язычки правой входят в вырезы левой.",
     m:[["w1L",90,0,.3],["w1R",90,0,.3],["f1L",90,.15,.35],["f1R",90,.15,.35],["w2L",90,.25,.55],["w2R",90,.25,.55],
        ["w3L",90,.5,.8],["w3R",90,.5,.8],["w4L",90,.75,1],["w4R",90,.75,1],["tab1",-180,.75,1],["tab2",-180,.75,1]]},
-  {g:"Вкладыш", t:"Клапаны и лепестки арки", d:"Поставьте вкладыш. Нижний клапан (83,6 мм) ложится на дно, верхний (48 мм) уходит к задней стенке, панель стоит под 65°. Лепестки арки отгибаются вперёд — на них садится кепка.",
-    m:[["@insert",1,0,.5],["tray",-65,.35,.8],["topflap",65,.35,.8],["@petals",-90,.55,1]]},
+  {g:"Вкладыш", t:"Клапаны вкладыша", d:"Поставьте вкладыш. Нижний клапан (83,6 мм) ложится на дно, верхний (48 мм) уходит к задней стенке, панель стоит под 65°. Лепестки арки остаются в плоскости панели — их изгиб под кепкой показывает отдельный ползунок.",
+    m:[["@insert",1,0,.5],["tray",-65,.35,.8],["topflap",65,.35,.8]]},
   {g:"Вкладыш", t:"Вкладыш в коробку", d:"Опустите вкладыш в основание: поддон на дне у переднего борта, трубы упираются в заднюю стенку. Глубина внутри 226 мм, зазор около 0,6 мм.",
     m:[["@insert",2,0,1]]},
   {g:"Крышка", t:"Перед и бока крышки", d:"Опустите перед крышки и оба бока на 90°.",
@@ -237,16 +241,16 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(32, 1, 5, 20000);
 
-scene.add(new THREE.HemisphereLight(0xffffff, 0x8a8478, 1.15));
-const sun = new THREE.DirectionalLight(0xffffff, 1.9);
-sun.position.set(-700, 1500, -900);
+scene.add(new THREE.HemisphereLight(0xfffaf2, 0x9a9184, 1.35));
+const sun = new THREE.DirectionalLight(0xfff6ea, 1.6);
+sun.position.set(-900, 1400, -700);
 sun.castShadow = true;
 sun.shadow.mapSize.set(2048, 2048);
 Object.assign(sun.shadow.camera, {left:-1100, right:1100, top:1100, bottom:-1100, near:100, far:4000});
 sun.shadow.bias = -0.0004;
 scene.add(sun);
 const fill = new THREE.DirectionalLight(0xffffff, 0.55); fill.position.set(900, 500, 700); scene.add(fill);
-const ground = new THREE.Mesh(new THREE.PlaneGeometry(6000, 6000), new THREE.ShadowMaterial({opacity:.16}));
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(6000, 6000), new THREE.ShadowMaterial({opacity:.13}));
 ground.rotation.x = -Math.PI / 2; ground.position.y = -0.3; ground.receiveShadow = true; scene.add(ground);
 
 function applyTheme(){
@@ -257,8 +261,8 @@ function applyTheme(){
 /* ------------------------------------------------------------------ materials & textures */
 const HL = {color:new THREE.Color("#0a6fd6")};
 const SHEETS = {
-  box:   {origin:[404.06, 842.355], inner:"#c7aa78", edge:"#a8895a", group:new THREE.Group()},
-  insert:{origin:[512.78, 337.19],  inner:"#e9e6df", edge:"#cfcabe", group:new THREE.Group()},
+  box:   {origin:[404.06, 842.355], inner:"#c4a77a", edge:"#b7a17f", board:"#d8d1c6", group:new THREE.Group()},
+  insert:{origin:[512.78, 337.19],  inner:"#e4dfd6", edge:"#cbc2b3", board:"#dcd6cc", group:new THREE.Group()},
 };
 let REV = "I";
 const REV_INFO = {
@@ -269,8 +273,10 @@ const REV_INFO = {
 };
 for (const k in SHEETS){
   const S = SHEETS[k]; Object.assign(S, k === "box" ? GEO.box[REV] : GEO[k]); scene.add(S.group);
-  S.printMat = new THREE.MeshStandardMaterial({color:0xffffff, roughness:.62, metalness:0});
-  S.mode = "plain"; S.custom = null;
+  S.printMat = new THREE.MeshStandardMaterial({color:0xffffff, roughness:.78, metalness:0});
+  S.bendOut = new THREE.MeshStandardMaterial({color:S.board, roughness:.78, side:THREE.DoubleSide});
+  S.bendIn = new THREE.MeshStandardMaterial({color:S.inner, roughness:.9, side:THREE.DoubleSide});
+  S.mode = "design"; S.custom = null; S.insideTex = null;
 }
 
 function svgToCanvas(svgText, art){
@@ -298,11 +304,24 @@ async function setTexture(k){
   const S = SHEETS[k];
   let cnv = null;
   if (S.mode === "custom" && S.custom) cnv = S.custom;
-  else if (S.mode === "concept" || S.mode === "template"){
+  else if (S.mode === "design" || S.mode === "template"){
     const key = k + (k === "box" ? REV : "") + S.mode;
     if (!texCache[key]) texCache[key] = await svgToCanvas(k === "box" ? TEX.box[REV][S.mode] : TEX[k][S.mode], S.art);
     cnv = texCache[key];
   }
+  if (k === "box"){
+    let ins = null;
+    if (S.mode === "design" && $("#inPrint").checked){
+      const key = "boxinside" + REV;
+      if (!texCache[key]) texCache[key] = await svgToCanvas(TEX.box[REV].inside, S.art);
+      ins = texCache[key];
+    }
+    if (S.insideTex) S.insideTex.dispose();
+    S.insideTex = ins ? new THREE.CanvasTexture(ins) : null;
+    if (S.insideTex){ S.insideTex.colorSpace = THREE.SRGBColorSpace; S.insideTex.anisotropy = renderer.capabilities.getMaxAnisotropy(); }
+    applyInner();
+  }
+  S.bendOut.color.set(S.mode === "design" ? S.board : 0xf4f3ef); S.bendOut.needsUpdate = true;
   if (S.printMat.map) S.printMat.map.dispose();
   if (cnv){
     const t = new THREE.CanvasTexture(cnv);
@@ -310,6 +329,64 @@ async function setTexture(k){
     S.printMat.map = t; S.printMat.color.set(0xffffff);
   } else { S.printMat.map = null; S.printMat.color.set(0xf4f3ef); }
   S.printMat.needsUpdate = true; requestRender();
+}
+
+function applyInner(){
+  const S = SHEETS.box;
+  for (const P of ORDER){
+    if (P.sheet !== S) continue;
+    P.inner.map = S.insideTex; P.inner.color.set(S.insideTex ? 0xffffff : S.inner); P.inner.needsUpdate = true;
+  }
+  S.bendIn.color.set(S.insideTex ? "#dcd6cc" : S.inner); S.bendIn.needsUpdate = true;
+  requestRender();
+}
+
+/* ------------------------------------------------------------------ rounded folds
+   A fold is drawn as the board's cross-section swept around the fold axis:
+   90-degree folds get a rounded outer corner (radius = board thickness), 180-degree
+   folds a closed rounded edge, as on the real board (no open flute on doubled walls). */
+const BEND_SEG = 14;
+function makeBend(P, S){
+  const g = new THREE.BufferGeometry();
+  const n = (BEND_SEG) * 2 * 6;                     // two surfaces, one quad per segment
+  g.setAttribute("position", new THREE.Float32BufferAttribute(new Float32Array(n * 3), 3));
+  g.setAttribute("normal", new THREE.Float32BufferAttribute(new Float32Array(n * 3), 3));
+  g.addGroup(0, BEND_SEG * 6, 0); g.addGroup(BEND_SEG * 6, BEND_SEG * 6, 1);
+  const m = new THREE.Mesh(g, [S.bendOut, S.bendIn]);
+  m.matrixAutoUpdate = false; m.frustumCulled = false; m.castShadow = true; m.receiveShadow = true;
+  S.group.add(m); return m;
+}
+const _v = new THREE.Vector3(), _w = new THREE.Vector3(), _ax = new THREE.Vector3();
+function updateBend(P, base, ang, off){
+  const t = P.sheet.thickness, m = P.bend;
+  if (!m) return;
+  if (Math.abs(ang) < 0.3 || (P.lift != null && P.lift < 0)){ m.visible = false; return; }
+  m.visible = P.mesh.visible;
+  m.matrix.copy(base); m.matrixWorldNeedsUpdate = true;
+  const pos = m.geometry.attributes.position.array, nrm = m.geometry.attributes.normal.array;
+  const a = P.axis, p1 = P.pivot, len = P.hlen;
+  let k = 0;
+  const radial = (yc, phi, out) => {                  // vector from the axis to the swept point
+    _v.set(0, yc - off, 0);
+    _w.copy(a).cross(_v);
+    return out.copy(_v).multiplyScalar(Math.cos(phi)).addScaledVector(_w, Math.sin(phi));
+  };
+  for (const yc of [-t, 0]){
+    for (let i = 0; i < BEND_SEG; i++){
+      const f0 = ang * D2R * i / BEND_SEG, f1 = ang * D2R * (i + 1) / BEND_SEG;
+      const r0 = radial(yc, f0, new THREE.Vector3()), r1 = radial(yc, f1, new THREE.Vector3());
+      const c0 = p1.clone().addScaledVector(UP, off), c1 = c0.clone().addScaledVector(a, len);
+      const q = [c0.clone().add(r0), c1.clone().add(r0), c1.clone().add(r1), c0.clone().add(r0), c1.clone().add(r1), c0.clone().add(r1)];
+      const nr = [r0, r0, r1, r0, r1, r1];
+      for (let j = 0; j < 6; j++){
+        pos[k] = q[j].x; pos[k + 1] = q[j].y; pos[k + 2] = q[j].z;
+        const l = nr[j].length() || 1; nrm[k] = nr[j].x / l; nrm[k + 1] = nr[j].y / l; nrm[k + 2] = nr[j].z / l;
+        k += 3;
+      }
+    }
+  }
+  m.geometry.attributes.position.needsUpdate = true; m.geometry.attributes.normal.needsUpdate = true;
+  m.geometry.computeBoundingSphere();
 }
 
 /* ------------------------------------------------------------------ panel geometry */
@@ -369,7 +446,9 @@ function buildPanel(p, S){
     let cx = 0, cy = 0; for (const q of p.poly){ cx += q[0]; cy += q[1]; }
     const c = new THREE.Vector3(...L(cx / p.poly.length, cy / p.poly.length, 0));
     if (axis.clone().cross(c.clone().sub(p1)).y < 0) axis.negate();
-    P.pivot = p1; P.axis = axis;
+    P.pivot = p1; P.axis = axis; P.hlen = p2.distanceTo(p1);
+    if (axis.dot(p2.clone().sub(p1)) < 0) P.pivot = p2;     // sweep along +axis from the pivot
+    P.bend = makeBend(P, S);
   }
   return P;
 }
@@ -389,6 +468,7 @@ function setRev(rev){
   for (let i = ORDER.length - 1; i >= 0; i--){
     const P = ORDER[i]; if (P.sheet !== S) continue;
     S.group.remove(P.mesh); P.mesh.geometry.dispose(); P.inner.dispose(); P.mesh.material[2].dispose();
+    if (P.bend){ S.group.remove(P.bend); P.bend.geometry.dispose(); }
     delete PANELS[P.id]; ORDER.splice(i, 1);
   }
   Object.assign(S, GEO.box[rev]); S.custom = S.mode === "custom" ? S.custom : null;
@@ -459,7 +539,7 @@ function movingAt(id, t){
 
 const tmp = new THREE.Matrix4(), tA = new THREE.Matrix4(), tB = new THREE.Matrix4();
 const UP = new THREE.Vector3(0, 1, 0);
-let T = 0, LID = 0;
+let T = NSTEP, LID = 0.85, PET = 0;
 function pose(){
   const boxRoot = new THREE.Matrix4().makeTranslation(0, 1.5, 0);
   const insRoot = insertPose(valueAt("@insert", T));
@@ -467,6 +547,7 @@ function pose(){
     const base = P.parentId ? PANELS[P.parentId].world : (P.sheet === SHEETS.box ? boxRoot : insRoot);
     let ang = valueAt(P.id, T);
     if (P.id === "lidtop" && LID > 0) ang = ang + (Math.min(ang, -35) - ang) * LID;
+    if (P.id.startsWith("petal")) ang = PET * 30;
     P.angle = ang;
     if (P.pivot && Math.abs(ang) > 1e-6){
       const t = P.sheet.thickness;
@@ -477,7 +558,8 @@ function pose(){
       tB.makeRotationAxis(P.axis, ang * D2R);
       tmp.makeTranslation(-piv.x, -piv.y, -piv.z);
       P.world.copy(base).multiply(tA).multiply(tB).multiply(tmp);
-    } else P.world.copy(base);
+      updateBend(P, base, ang, off);
+    } else { P.world.copy(base); if (P.bend) P.bend.visible = false; }
     P.mesh.matrix.copy(P.world); P.mesh.matrixWorldNeedsUpdate = true;
     const hl = movingAt(P.id, T) || (P.sheet === SHEETS.insert && P.parentId === null && movingAt("@insert", T));
     P.inner.emissive.copy(hl ? HL.color : new THREE.Color(0)); P.inner.emissiveIntensity = hl ? .28 : 0;
@@ -602,7 +684,10 @@ $("#play").addEventListener("click", () => {
   if (T >= NSTEP) T = 0;
   $("#play").dataset.all = "1"; playing = true; syncUI();
 });
-$("#lid").addEventListener("input", e => { LID = +e.target.value; $("#lidVal").textContent = Math.round(LID * 125) + "°"; requestRender(); });
+function lidLabel(){ $("#lidVal").textContent = Math.round(LID * 125) + "°"; }
+$("#lid").addEventListener("input", e => { LID = +e.target.value; lidLabel(); requestRender(); });
+$("#pet").addEventListener("input", e => { PET = +e.target.value; $("#petVal").textContent = Math.round(PET * 30) + "°"; requestRender(); });
+$("#inPrint").addEventListener("change", () => setTexture("box"));
 document.querySelectorAll(".views button").forEach(b => b.addEventListener("click", () => fitView(b.dataset.view === "fit" ? null : b.dataset.view)));
 $("#texMode").addEventListener("click", e => {
   const b = e.target.closest("button"); if (!b) return;
@@ -624,7 +709,7 @@ function upload(k, file){
 }
 $("#upBox").addEventListener("change", e => upload("box", e.target.files[0]));
 $("#upIns").addEventListener("change", e => upload("insert", e.target.files[0]));
-$("#showIns").addEventListener("change", e => { SHEETS.insert.group.visible = e.target.checked; for (const P of ORDER) if (P.sheet === SHEETS.insert) P.mesh.visible = e.target.checked; requestRender(); });
+$("#showIns").addEventListener("change", e => { SHEETS.insert.group.visible = e.target.checked; requestRender(); });
 $("#revSeg").addEventListener("click", e => { const b = e.target.closest("button"); if (b) setRev(b.dataset.rev); });
 $("#artBox").textContent = `${f1(SHEETS.box.art.w)} × ${f1(SHEETS.box.art.h)}`;
 $("#artIns").textContent = `${f1(SHEETS.insert.art.w)} × ${f1(SHEETS.insert.art.h)}`;
@@ -636,9 +721,9 @@ document.addEventListener("keydown", e => {
 new MutationObserver(() => { applyTheme(); requestRender(); }).observe(document.documentElement, {attributes:true, attributeFilter:["data-theme"]});
 matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { applyTheme(); requestRender(); });
 
-applyTheme(); syncUI(); syncRev(); pose(); resize(); placeCamera();
-fitView("iso");
+applyTheme(); syncUI(); syncRev(); lidLabel(); pose(); resize();
+Object.assign(cam, {theta:-0.2, phi:0.8, r:1450}); cam.target.set(0, 150, 30); placeCamera();
 Promise.all([setTexture("box"), setTexture("insert")]).finally(() => { $("#loading").hidden = true; requestRender(); });
 requestAnimationFrame(frame);
-window.__capbox = {setRev, setT:v => { T = v; LID = 0; syncUI(); pose(); requestRender(); }, setLid:v => { LID = v; requestRender(); }, cam, fitView, PANELS, render:() => { pose(); placeCamera(); renderer.render(scene, camera); }};
+window.__capbox = {setRev, setPet:v => { PET = v; requestRender(); }, setT:v => { T = v; LID = 0; syncUI(); pose(); requestRender(); }, setLid:v => { LID = v; requestRender(); }, cam, fitView, PANELS, render:() => { pose(); placeCamera(); renderer.render(scene, camera); }};
 </script>
