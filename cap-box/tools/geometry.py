@@ -348,6 +348,49 @@ def box_panels_rev_k(lf_ext=REV_K["lf_ext"], hem=REV_K["hem"], lock=REV_K["lock"
 
 
 # --------------------------------------------------------------------------
+# BOX Rev L: Rev K with the closing tongue moved to the BASE.
+#  * no tuck flap on the lid any more; the lid inner front (180 hem, 22 mm)
+#    stays: it gives the lid front a folded bottom edge, traps the lid ears
+#    and forms a 1.8 mm pocket behind the lid front
+#  * the inner lip lies straight on the front lip (lift 0) and carries a
+#    tongue 38 x 12 mm that rises through a widened thumb cut (44 x 13 mm) of
+#    the front lip; closing the lid slides the pocket down over the tongue
+#  * the side-wall front ears now go in behind the inner lip
+# --------------------------------------------------------------------------
+REV_L = dict(tongue_w=38.0, tongue_h=12.0, cut_w=44.0, cut_h=13.0)
+
+
+def _rounded_top(x0, x1, y_base, y_top, r, n=6):
+    """Rectangle-ish outline from (x0,y_base) up to y_top (y_top < y_base) with rounded top corners,
+    returned from left-bottom to right-bottom (sheet y grows downward)."""
+    pts = [[x0, y_base]]
+    pts += arc(x0 + r, y_top + r, r, 180, 270, n)
+    pts += arc(x1 - r, y_top + r, r, 270, 360, n)
+    pts.append([x1, y_base])
+    return [[round(x, 2), round(y, 2)] for x, y in pts]
+
+
+def box_panels_rev_l(tongue_w=REV_L["tongue_w"], tongue_h=REV_L["tongue_h"], cut_w=REV_L["cut_w"], cut_h=REV_L["cut_h"]):
+    P, info = box_panels_rev_k()
+    P = [p for p in P if p["id"] != "tuck"]
+    by = {p["id"]: p for p in P}
+    yf = 987.14                       # lip / inner lip fold
+    cx = 404.06
+    # front lip: wider thumb cut at the top centre
+    cut = _rounded_top(cx - cut_w / 2, cx + cut_w / 2, yf, yf - cut_h, 6)
+    by["lip"]["poly"] = [[294.98, 958.39], [513.13, 958.39], [513.13, yf]] + cut[::-1] + [[294.98, yf]]
+    # inner lip: solid at the centre, with the tongue continuing past the fold
+    tongue = _rounded_top(cx - tongue_w / 2, cx + tongue_w / 2, yf, yf - tongue_h, 5)
+    by["innerlip"]["poly"] = ([[294.98, yf]] + tongue + [[513.13, yf], [513.13, 990.97], [510.85, 990.97],
+                              [510.85, 1014.35], [473.22, 1014.35], [471.72, 1017.60], [444.72, 1017.60],
+                              [443.22, 1014.35], [364.89, 1014.35], [363.39, 1017.60], [336.39, 1017.60],
+                              [334.89, 1014.35], [297.27, 1014.35], [297.27, 990.97], [294.98, 990.97]])
+    by["innerlip"]["lift"] = 0
+    info = dict(info, tongue=(tongue_w, tongue_h), thumb_cut=(cut_w, cut_h))
+    return P, info
+
+
+# --------------------------------------------------------------------------
 # INSERT (Rev C).  Main panel x 411.77..613.78, centre 512.775
 # --------------------------------------------------------------------------
 IXM = 1025.55

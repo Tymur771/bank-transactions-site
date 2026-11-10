@@ -36,14 +36,22 @@ def dieline_from_panels(panels):
         a, b = p["hinge"]
         h = LineString([a, b])
         hinge_zone.append(h.buffer(0.08, cap_style=2))
-        if p["id"] in FOLD180:
-            dx, dy = b[0] - a[0], b[1] - a[1]
-            n = math.hypot(dx, dy)
-            nx, ny = -dy / n, dx / n
-            for s in (-1, 1):
-                dbl.append([[a[0] + s * nx, a[1] + s * ny], [b[0] + s * nx, b[1] + s * ny]])
+        # a crease only exists where BOTH panels have material along the hinge
+        par = next((q for q in panels if q["id"] == p["parent"]), None)
+        if par is not None:
+            shared = h.intersection(Polygon(p["poly"]).buffer(0.06)).intersection(Polygon(par["poly"], par["holes"]).buffer(0.06))
+            pieces = [list(g.coords) for g in getattr(shared, "geoms", [shared]) if isinstance(g, LineString) and g.length > 0.5]
         else:
-            crease.append([list(a), list(b)])
+            pieces = [[list(a), list(b)]]
+        for pa, pb in ((pc[0], pc[-1]) for pc in pieces):
+            if p["id"] in FOLD180:
+                dx, dy = pb[0] - pa[0], pb[1] - pa[1]
+                n = math.hypot(dx, dy)
+                nx, ny = -dy / n, dx / n
+                for s in (-1, 1):
+                    dbl.append([[pa[0] + s * nx, pa[1] + s * ny], [pb[0] + s * nx, pb[1] + s * ny]])
+            else:
+                crease.append([list(pa), list(pb)])
     cut = edges.difference(unary_union(hinge_zone))
     cut = linemerge(cut) if not cut.is_empty else cut
     cut_lines = [pl for pl in _lines(cut) if LineString(pl).length > 0.2]
