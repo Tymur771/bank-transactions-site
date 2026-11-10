@@ -5,7 +5,7 @@ import math
 from shapely.geometry import LineString, Polygon, MultiLineString
 from shapely.ops import unary_union, linemerge
 
-FOLD180 = {"innerlip", "sidelinerL", "sidelinerR", "lidinner", "tuck", "lidlinerL", "lidlinerR", "tab1", "tab2"}
+FOLD180 = {"innerlip", "sidelinerL", "sidelinerR", "lidinner", "tuck", "lidlinerL", "lidlinerR", "tab1", "tab2", "tophemL", "tophemR"}
 
 
 def _lines(g):

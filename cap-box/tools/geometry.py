@@ -200,7 +200,7 @@ def _refl(p, a, b):
     return (ax + 2 * t * ux - vx, ay + 2 * t * uy - vy)
 
 
-def box_panels_rev_i(step=REV_I["step"], wall_top=REV_I["wall_top"], seam=REV_I["seam"]):
+def box_panels_rev_i(step=REV_I["step"], wall_top=REV_I["wall_top"], seam=REV_I["seam"], lf_ext=0.0):
     """Rev I panels.  Works in 'wall' coordinates: d = depth from the back
     crease, h = height above the bottom crease (base side wall), and the same
     for the lid side (d from the lid/back hinge, h above the bottom crease when
@@ -215,7 +215,17 @@ def box_panels_rev_i(step=REV_I["step"], wall_top=REV_I["wall_top"], seam=REV_I[
     Lw = lambda p: (528.82 - p[1], H_LID - (295.73 - p[0]))
     Li = lambda q: [round(295.73 - (H_LID - q[1]), 2), round(528.82 - q[0], 2)]
 
-    lid_front = (225.46, 39.92)              # unchanged: lid front / lid ear stay as in Rev H
+    # lf_ext: lid front made longer by this much (Rev K closes the gap to the front lip);
+    # the lid side's front edge, lid liner and lid ear follow it down
+    lid_front = (225.46, 39.92 - lf_ext)
+    if lf_ext:
+        for pid in ("lidfront", "lidinner", "tuck"):
+            p = by[pid]
+            if pid == "lidfront":
+                p["poly"] = [[x, y - lf_ext if y < 200 else y] for x, y in p["poly"]]
+            else:
+                p["poly"] = [[x, round(y - lf_ext, 2)] for x, y in p["poly"]]
+                p["hinge"] = [[x, round(y - lf_ext, 2)] for x, y in p["hinge"]]
     # base front point chosen so the seam (perpendicular gap) stays as in Rev H
     hb = 33.63
     for _ in range(30):
@@ -239,10 +249,12 @@ def box_panels_rev_i(step=REV_I["step"], wall_top=REV_I["wall_top"], seam=REV_I[
               (168.15, 1.55), (225.94, 1.54), base_b]
     liner = [_refl(q, base_a, base_b) for q in folded]
     # --- lid side, lid liner and lid ear
-    lside = [(229.79, H_LID), (229.79, 39.66), (225.96, 39.66), lid_front, lid_a]
-    lliner_folded = [(lid_front[0] - (195.21 - lid_front[1]) / k, 195.21), (229.79, 195.22), (229.79, 39.67), lid_front]
+    lsb = 39.66 - lf_ext                     # lid side front edge, bottom
+    lside = [(229.79, H_LID), (229.79, lsb), (225.96, lsb), lid_front, lid_a]
+    lliner_folded = [(lid_front[0] - (195.21 - lid_front[1]) / k, 195.21), (229.79, 195.22), (229.79, lsb + 0.01), lid_front]
     lliner = [_refl(q, lid_a, lid_b) for q in lliner_folded]
-    lear_folded = [(229.79, 194.71), (229.79, 40.45), (260.79, 40.46), (263.79, 43.45), (263.80, 191.71), (260.79, 194.71)]
+    eb = 40.45 - lf_ext
+    lear_folded = [(229.79, 194.71), (229.79, eb), (260.79, eb + 0.01), (263.79, eb + 3.0), (263.80, 191.71), (260.79, 194.71)]
     lear = [_refl(q, lid_a, lid_b) for q in lear_folded]
 
     for s, m in (("L", lambda p: p), ("R", lambda p: mirror(p, BXM / 2))):
@@ -257,7 +269,7 @@ def box_panels_rev_i(step=REV_I["step"], wall_top=REV_I["wall_top"], seam=REV_I[
         by["lidear" + s]["hinge"] = m([Li(lear[0]), Li(lear[1])])
     info = dict(step=step, wall_top=wall_top, slope_deg=math.degrees(math.atan(k)), base_front=hb,
                 seam_vertical=gv, lid_end=d_lid_end, base_line=[Wi(base_a), Wi(base_b)],
-                lid_line=[Li(lid_a), Li(lid_b)])
+                lid_line=[Li(lid_a), Li(lid_b)], lid_front_len=round(296.74 - 135.08 + lf_ext, 2))
     return P, info
 
 
@@ -293,6 +305,45 @@ def box_panels_rev_j():
                                    poly=m(flap), holes=[], hinge=m([[295.73, y0], [295.73, y1]]),
                                    lift=-2.6, face="hidden", rot=None))
     info = dict(info, hinge_y=y_h, fixed_top=round(info["lid_end"], 2), toplock=d)
+    return P, info
+
+
+# --------------------------------------------------------------------------
+# BOX Rev K (for the test print): Rev J, cleaned up on the visible faces
+#  * lid front 6.1 mm longer -> it stops 1 mm above the front lip, one clean
+#    horizontal line at the front; the base diagonal now ends behind the lip,
+#    so the open notch at the front-bottom corner is gone
+#  * fixed top at full outside width with a 180-degree hem on each side: the
+#    corner over the step is a smooth fold, the hem covers the raw top edges of
+#    the side walls, and the lock flap drops inside from the hem
+# --------------------------------------------------------------------------
+REV_K = dict(lf_ext=6.1, hem=4.2, lock=28.0)
+
+
+def box_panels_rev_k(lf_ext=REV_K["lf_ext"], hem=REV_K["hem"], lock=REV_K["lock"]):
+    P, info = box_panels_rev_i(lf_ext=lf_ext)
+    by = {p["id"]: p for p in P}
+    y_h = round(528.82 - info["lid_end"], 2)            # lid hinge (sheet y)
+    lt = by["lidtop"]
+    lt["poly"] = [[295.73, 296.74], [512.39, 296.74], [512.39, y_h], [295.73, y_h]]
+    lt["parent"] = "bodytop"
+    lt["hinge"] = [[295.73, y_h], [512.39, y_h]]
+    xo = 294.98                                          # full outside width, as the lid front
+    P.insert(P.index(lt), dict(id="bodytop", name="Fixed top (over the step)", parent="back", sheet="box",
+                               poly=[[xo, y_h], [BXM - xo, y_h], [BXM - xo, 528.82], [xo, 528.82]],
+                               holes=[], hinge=[[295.73, 528.82], [512.39, 528.82]], lift=None, face="out", rot=180))
+    y0, y1 = y_h + 1.5, 528.82 - 1.5
+    hem_p = [[xo, y0], [xo - hem, y0 + hem], [xo - hem, y1 - hem], [xo, y1]]
+    xl = xo - hem
+    lock_p = [[xl, y0 + hem + 1], [xl - lock + 4, y0 + hem + 1], [xl - lock, y0 + hem + 5],
+              [xl - lock, y1 - hem - 5], [xl - lock + 4, y1 - hem - 1], [xl, y1 - hem - 1]]
+    for s, m in (("L", lambda p: p), ("R", lambda p: mirror(p, BXM / 2))):
+        P.insert(P.index(lt), dict(id="tophem" + s, name="Top hem (180)", parent="bodytop", sheet="box",
+                                   poly=m(hem_p), holes=[], hinge=m([[xo, y0], [xo, y1]]), lift=0, face="hidden", rot=None))
+        P.insert(P.index(lt), dict(id="toplock" + s, name="Top lock flap", parent="tophem" + s, sheet="box",
+                                   poly=m(lock_p), holes=[], hinge=m([[xl, y0 + hem + 1], [xl, y1 - hem - 1]]),
+                                   lift=None, face="hidden", rot=None))
+    info = dict(info, hinge_y=y_h, fixed_top=round(info["lid_end"], 2), toplock=lock, hem=hem, lf_ext=lf_ext)
     return P, info
 
 

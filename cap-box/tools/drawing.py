@@ -8,7 +8,8 @@ from dieline import FOLD180
 
 RED, BLUE, PURPLE, MAG, GREY, INK = "#e0102f", "#0a6fd6", "#5b2bd6", "#c03cc0", "#555555", "#111111"
 LINER_FILL, EAR_FILL, CHANGE = "#f3edf9", "#e8f0fb", "#e85d1a"
-CHANGED_J = {"bodytop", "lidtop", "toplockL", "toplockR"}
+CHANGED_J = {"bodytop", "lidtop", "toplockL", "toplockR", "tophemL", "tophemR"}
+CHANGED_K = CHANGED_J | {"lidfront", "lidinner", "tuck"}
 CHANGED = {"sideL", "sideR", "sidelinerL", "sidelinerR", "lidsideL", "lidsideR", "lidlinerL", "lidlinerR", "lidearL", "lidearR"}
 
 LABELS = {
@@ -19,6 +20,7 @@ LABELS = {
     "lidlinerL": "LID LINER (180)", "lidlinerR": "LID LINER (180)", "lidearL": "EAR", "lidearR": "EAR",
     "backearL": "EAR", "backearR": "EAR", "frontearL": "EAR", "frontearR": "EAR",
     "bodytop": "FIXED TOP", "toplockL": "TOP LOCK", "toplockR": "TOP LOCK",
+    "tophemL": "HEM", "tophemR": "HEM",
 }
 
 
@@ -76,8 +78,11 @@ def side_view(ox, oy, sc, rev_i, rev_h_line):
     base = [P(0, 0), P(0, s["wall_top"]), P(s["step"], s["wall_top"]), P(225.95, s["base_front"]), P(225.95, 24.92),
             P(W, 24.92), P(W, 0)]
     out.append('<path d="%s" fill="#efe9de" stroke="%s" stroke-width="0.5"/>' % (d_path(base, True), INK))
-    lid_front_h = 39.92
-    lid = [P(0, 199), P(W, 199), P(W, lid_front_h), P(225.46, lid_front_h), P(s["lid_end"], 197.5), P(0, 197.5)]
+    lid_front_h = 39.92 - s.get("lf_ext", 0)
+    d0 = s.get("fixed_top", 0)               # Rev J/K: the fixed top belongs to the base
+    lid = [P(d0, 199), P(W, 199), P(W, lid_front_h), P(225.46, lid_front_h), P(s["lid_end"], 197.5), P(d0, 197.5)]
+    if d0:
+        out.append('<path d="%s" fill="#efe9de" stroke="%s" stroke-width="0.5"/>' % (d_path([P(0, 196), P(d0, 196), P(d0, 199), P(0, 199)], True), INK))
     out.append('<path d="%s" fill="#2a2d31" fill-opacity="0.85" stroke="%s" stroke-width="0.5"/>' % (d_path(lid, True), INK))
     # insert profile (Rev C) inside: tray, 65 deg panel, top flap, tube back wall
     T = 1.5
@@ -104,10 +109,10 @@ def write_drawing(panels, raw, info, path_svg, sheet_poly, bleed_poly, rev="I"):
     for p in panels:
         if p["id"] in FOLD180 and p["id"] not in ("tuck",):
             body.append('<path d="%s" fill="%s"/>' % (d_path(p["poly"], True), LINER_FILL))
-        if p["id"].startswith(("backear", "frontear", "lidear", "toplock")):
+        if p["id"].startswith(("backear", "frontear", "lidear", "toplock", "tophem")):
             body.append('<path d="%s" fill="%s"/>' % (d_path(p["poly"], True), EAR_FILL))
     # changed panels outline
-    changed = CHANGED | (CHANGED_J if rev == "J" else set())
+    changed = CHANGED | {"J": CHANGED_J, "K": CHANGED_K}.get(rev, set())
     ch = unary_union([Polygon(p["poly"]) for p in panels if p["id"] in changed]).buffer(5, join_style=2)
     for g in getattr(ch, "geoms", [ch]):
         body.append('<path d="%s" fill="none" stroke="%s" stroke-width="0.5" stroke-dasharray="4 2" opacity="0.7"/>'
@@ -138,6 +143,8 @@ def write_drawing(panels, raw, info, path_svg, sheet_poly, bleed_poly, rev="I"):
                 r = math.degrees(math.atan2(b[1] - a[1], b[0] - a[0]))
                 r = r - 180 if r > 90 else r + 180 if r < -90 else r
         col = PURPLE if p["id"] in FOLD180 else BLUE if "ear" in p["id"] else INK
+        if p["id"].startswith("tophem"):
+            continue                          # too narrow for a label; named in the notes
         body.append(text(c.x, c.y, LABELS[p["id"]], 7 if big else 3.6, col, rot=r, spacing=0.6 if big else 0.2))
     # Rev I dimensions
     L = {p["id"]: p for p in panels}
@@ -149,10 +156,14 @@ def write_drawing(panels, raw, info, path_svg, sheet_poly, bleed_poly, rev="I"):
     body.append(dim_v(306, la[1], 528.82, f1(528.82 - la[1])))
     # right-hand vertical dims (unchanged)
     x = maxx + 40
-    ys = [70.0, 113.08, 135.08, 296.74, 528.82, 726.32, 958.39, 987.14, 1017.6]
-    names = ["43.1", "22", "161.7", "232.1", "197.5", "232.1", "28.8", "27.2"]
-    for (y0, y1), nm in zip(zip(ys[:-1], ys[1:]), names):
-        body.append(dim_v(x, y0, y1, nm))
+    by = {p["id"]: p for p in panels}
+    ys = [min(q[1] for q in by["tuck"]["poly"]), by["tuck"]["hinge"][0][1], by["lidinner"]["hinge"][0][1],
+          296.74]
+    if "bodytop" in by:
+        ys.append(by["lidtop"]["hinge"][0][1])
+    ys += [528.82, 726.32, 958.39, 987.14, max(q[1] for q in by["innerlip"]["poly"])]
+    for y0, y1 in zip(ys[:-1], ys[1:]):
+        body.append(dim_v(x, y0, y1, f1(y1 - y0)))
     body.append(dim_v(x + 30, miny, maxy, "%s overall" % f1(maxy - miny)))
     body.append(dim_h(maxy + 18, 295.73, 512.39, "216.7"))
     body.append(dim_h(maxy + 30, minx, maxx, "%s overall" % f1(maxx - minx)))
@@ -161,7 +172,8 @@ def write_drawing(panels, raw, info, path_svg, sheet_poly, bleed_poly, rev="I"):
     tx = page_w - 262
     t = []
     t.append(text(tx, 72, "MFC - CAP BOX", 11, INK, "start", weight=400))
-    t.append(text(tx, 84, ("Rev J - GLUELESS, STEP %s mm, LID HINGE AT THE END OF THE STEP" if rev == "J" else
+    t.append(text(tx, 84, ("Rev K - GLUELESS, STEP %s mm, LID HINGE AT THE STEP END, CLEAN CORNERS" if rev == "K" else
+                           "Rev J - GLUELESS, STEP %s mm, LID HINGE AT THE END OF THE STEP" if rev == "J" else
                            "Rev I - GLUELESS, short tuck, STEP %s mm at the back of the side split") % f1(info["step"]), 4.6, CHANGE, "start"))
     lines = [
         "Material: E-flute litho-laminated board, caliper ~1.5 mm",
@@ -178,7 +190,7 @@ def write_drawing(panels, raw, info, path_svg, sheet_poly, bleed_poly, rev="I"):
         "    The base now hides the Rev C insert (top front corner ~53 mm",
         "    from the back at ~197 mm) when the lid is open.",
         "11. Lid side ends %s mm from the hinge; lid top is cut free" % f1(info["lid_end"]),
-        "    over the step. Lid front, lid ears unchanged.",
+        "    over the step." + ("" if rev == "K" else " Lid front, lid ears unchanged."),
         "12. Side liners, lid liners and lid ears re-mirrored about the",
         "    new 180 fold lines; liner tabs still land in the same 6 slots.",
         "13. Base front height at the seam %s (was 33.6)." % f1(info["base_front"]),
@@ -189,7 +201,15 @@ def write_drawing(panels, raw, info, path_svg, sheet_poly, bleed_poly, rev="I"):
         "    own tip and stays on the base step when the lid opens.",
         "15. Fixed top has 2 side lock flaps (%s mm) that drop inside the" % f1(info.get("toplock", 0)),
         "    side walls over the step and hold it without glue.",
-    ] if rev == "J" else []) + ["",
+    ] if rev in ("J", "K") else []) + ([
+        "16. Rev K: fixed top at full outside width (as the lid front) with a",
+        "    180 hem on each side: smooth fold on the corner over the step,",
+        "    the hem covers the raw top edges of the side walls; the lock",
+        "    flap drops inside from the hem (hem %s mm, lock %s mm)." % (f1(info.get("hem", 0)), f1(info.get("toplock", 0))),
+        "17. Lid front %s mm (was 161.7): it stops 1 mm above the front lip," % f1(info.get("lid_front_len", 0)),
+        "    one clean line at the front; base diagonal ends behind the lip",
+        "    (%s), so no open notch at the front corner." % f1(info["base_front"]),
+    ] if rev == "K" else []) + ["",
         "NOTES - NO GLUE ANYWHERE (as Rev H)",
         "1. Back and front lip fold up from BOTTOM.",
         "2. Side-wall ears fold in; side walls go up, ears sit BEHIND the",
@@ -197,8 +217,8 @@ def write_drawing(panels, raw, info, path_svg, sheet_poly, bleed_poly, rev="I"):
         "3. Back ears fold in; side LINER folds 180 over the slope edge,",
         "   covers them, 2 tabs push into the bottom slots.",
         ("4. Fixed top folds over the step, its 2 lock flaps drop inside the side walls;"
-         if rev == "J" else "4. Lid hinges on the back top edge: the top is one panel."),
-    ] + (["   the lid hinges on the crease at the front edge of the fixed top."] if rev == "J" else []) + [
+         if rev in ("J", "K") else "4. Lid hinges on the back top edge: the top is one panel."),
+    ] + (["   the lid hinges on the crease at the front edge of the fixed top."] if rev in ("J", "K") else []) + [
         "5. Lid front down, lid sides down, lid liners 180 over the slope",
         "   edge; their ears go in BEHIND the lid front.",
         "6. Lid inner front folds 180 up and traps those ears; the tuck",
@@ -209,7 +229,7 @@ def write_drawing(panels, raw, info, path_svg, sheet_poly, bleed_poly, rev="I"):
         "Rev %s - glueless - generated from Rev H geometry" % rev,
     ]
     for i, ln in enumerate(lines):
-        col = CHANGE if ln.startswith(("CHANGE", "10.", "11.", "12.", "13.", "14.", "15.", "    ")) and 9 <= i <= 28 else INK
+        col = CHANGE if ln.startswith(("CHANGE", "10.", "11.", "12.", "13.", "14.", "15.", "16.", "17.", "    ")) and 9 <= i <= 36 else INK
         t.append(text(tx, 98 + i * 6.2, ln, 3.7, col, "start"))
     ly = 98 + len(lines) * 6.2 + 8
     t.append(text(tx, ly, "LEGEND", 4.4, INK, "start", weight=700))

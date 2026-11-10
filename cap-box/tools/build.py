@@ -24,7 +24,7 @@ from shapely.ops import unary_union
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, HERE)
-from geometry import read_pdf, box_panels, box_panels_rev_i, box_panels_rev_j, insert_panels, r2  # noqa: E402
+from geometry import read_pdf, box_panels, box_panels_rev_i, box_panels_rev_j, box_panels_rev_k, insert_panels, r2  # noqa: E402
 from dieline import dieline_from_panels  # noqa: E402
 from drawing import write_drawing  # noqa: E402
 
@@ -437,7 +437,7 @@ def main():
     ], os.path.join(ROOT, "print"))
     print("Rev I", {k: (round(v, 2) if isinstance(v, float) else v) for k, v in infoI.items()})
 
-    # ---- Rev J (production): Rev I + lid hinge at the end of the step, fixed top with lock flaps
+    # ---- Rev J (superseded by Rev K, kept for comparison): Rev I + lid hinge at the end of the step, fixed top with lock flaps
     pJ, infoJ = box_panels_rev_j()
     raw_J = dieline_from_panels(pJ)
     iJ = sheet_info(pJ, {"bleed": []})
@@ -450,6 +450,19 @@ def main():
         "Слои CUT / CREASE / SAFE / BLEED / подсказки — технические, перед печатью скрыть (высечку даёт фабрика).",
     ], os.path.join(ROOT, "print"))
 
+    # ---- Rev K (production, test print): Rev I + lid hinge at the end of the step, fixed top with lock flaps
+    pK, infoK = box_panels_rev_k()
+    raw_K = dieline_from_panels(pK)
+    iK = sheet_info(pK, {"bleed": []})
+    write_drawing(pK, raw_K, infoK, os.path.join(ROOT, "print", "MFC-box-RevK_dieline.svg"), iK["outline"], iK["bleed"], rev="K")
+    to_pdf(os.path.join(ROOT, "print", "MFC-box-RevK_dieline.svg"), os.path.join(ROOT, "print", "MFC-box-RevK_dieline.pdf"))
+    write_template("MFC-box-RevK_design-template", raw_K, pK, iK, [
+        "MFC — CAP BOX · Rev K (уступ %s мм, петля на конце уступа, чистые углы) · шаблон для дизайна (1:1, мм)" % fmt(infoK["step"]),
+        "Артборд %s × %s мм. Рисуйте в слое ARTWORK, фон тяните до пунктира BLEED (+3 мм)." % (fmt(iK["art"]["w"]), fmt(iK["art"]["h"])),
+        "Текст и логотипы — внутри голубой SAFE-зоны (3 мм от высечки и биговки). Стрелка ВЕРХ = верх на собранной коробке.",
+        "Слои CUT / CREASE / SAFE / BLEED / подсказки — технические, перед печатью скрыть (высечку даёт фабрика).",
+    ], os.path.join(ROOT, "print"))
+
     # ---- designs: the chosen one (v1.1 "Stone") goes into the 3D viewer, the others are proposals
     import designs as DS
     from functools import partial
@@ -457,18 +470,19 @@ def main():
     def write_design(v, outdir, tag):
         os.makedirs(outdir, exist_ok=True)
         o = partial(DS.box_outside, v); n_ = partial(DS.box_inside, v); s_ = partial(DS.insert_art, v)
-        dJ_ = write_concept("MFC-box-RevJ_%s_outside" % tag, raw_J, pJ, iJ, o, outdir)
-        dJn_ = write_concept("MFC-box-RevJ_%s_inside" % tag, raw_J, pJ, iJ, n_, outdir)
+        dJ_ = write_concept("MFC-box-RevK_%s_outside" % tag, raw_K, pK, iK, o, outdir)
+        dJn_ = write_concept("MFC-box-RevK_%s_inside" % tag, raw_K, pK, iK, n_, outdir)
         for ext in (".svg", ".pdf"):   # the un-mirrored outline copy is only for the 3D texture
-            os.remove(os.path.join(outdir, "MFC-box-RevJ_%s_inside_outlined%s" % (tag, ext)))
+            os.remove(os.path.join(outdir, "MFC-box-RevK_%s_inside_outlined%s" % (tag, ext)))
         dIns_ = write_concept("MFC-insert-RevC_%s" % tag, raw_i, pi, ii, s_, outdir)
-        a = iJ["art"]          # inside print as the printer sees it: reverse side of the sheet = mirrored
+        a = iK["art"]          # inside print as the printer sees it: reverse side of the sheet = mirrored
         mir = svg_doc(a, '<g transform="translate(%s 0) scale(-1 1)">%s%s</g>' % (
-            fmt(2 * a["x"] + a["w"]), n_(pJ, iJ, True), dieline_layers(raw_J, pJ, iJ)), "inside print, mirrored")
-        mp = os.path.join(outdir, "MFC-box-RevJ_%s_inside_PRINT-mirrored.svg" % tag)
+            fmt(2 * a["x"] + a["w"]), n_(pK, iK, True), dieline_layers(raw_K, pK, iK)), "inside print, mirrored")
+        mp = os.path.join(outdir, "MFC-box-RevK_%s_inside_PRINT-mirrored.svg" % tag)
         open(mp, "w").write(mir)
         to_pdf(mp, mp[:-4] + ".pdf")
-        return dict(J=dict(design=dJ_, inside=dJn_),
+        return dict(K=dict(design=dJ_, inside=dJn_),
+                    J=dict(design=svg_doc(iJ["art"], o(pJ, iJ, True), tag), inside=svg_doc(iJ["art"], n_(pJ, iJ, True), tag)),
                     I=dict(design=svg_doc(iI["art"], o(pI, iI, True), tag), inside=svg_doc(iI["art"], n_(pI, iI, True), tag)),
                     H=dict(design=svg_doc(ib["art"], o(pb, ib, True), tag), inside=svg_doc(ib["art"], n_(pb, ib, True), tag)),
                     insert=dIns_)
@@ -484,14 +498,16 @@ def main():
     geo = dict(
         box={"H": dict(panels=panel_json(pb), art=ib["art"], thickness=1.5),
              "I": dict(panels=panel_json(pI), art=iI["art"], thickness=1.5, step=infoI["step"]),
-             "J": dict(panels=panel_json(pJ), art=iJ["art"], thickness=1.5, step=infoJ["step"])},
+             "J": dict(panels=panel_json(pJ), art=iJ["art"], thickness=1.5, step=infoJ["step"]),
+             "K": dict(panels=panel_json(pK), art=iK["art"], thickness=1.5, step=infoK["step"])},
         insert=dict(panels=panel_json(pi), art=ii["art"], thickness=0.9),
     )
     json.dump(geo, open(os.path.join(ROOT, "data", "geometry.json"), "w"), ensure_ascii=False)
     textures = dict(
         box={"H": dict(main_tex["H"], template=outline_template(raw_b, pb, ib)),
              "I": dict(main_tex["I"], template=outline_template(raw_I, pI, iI)),
-             "J": dict(main_tex["J"], template=outline_template(raw_J, pJ, iJ))},
+             "J": dict(main_tex["J"], template=outline_template(raw_J, pJ, iJ)),
+             "K": dict(main_tex["K"], template=outline_template(raw_K, pK, iK))},
         insert=dict(design=dIns, template=outline_template(raw_i, pi, ii)),
     )
     src = open(os.path.join(HERE, "viewer.src.html"), encoding="utf-8").read()
@@ -500,7 +516,7 @@ def main():
     open(os.path.join(ROOT, "index.html"), "w", encoding="utf-8").write(html)
     vdir = os.environ.get("CAPBOX_VARIANTS")
     for key, vt in variant_tex.items():
-        tx = dict(box={k: dict(vt[k], template=textures["box"][k]["template"]) for k in ("H", "I", "J")},
+        tx = dict(box={k: dict(vt[k], template=textures["box"][k]["template"]) for k in ("H", "I", "J", "K")},
                   insert=dict(design=vt["insert"], template=textures["insert"]["template"]))
         h2 = src.replace("/*__GEOMETRY__*/null", json.dumps(geo, ensure_ascii=False, separators=(",", ":")))
         h2 = h2.replace("/*__TEXTURES__*/null", json.dumps(tx, ensure_ascii=False, separators=(",", ":")))

@@ -19,7 +19,7 @@ from shapely.ops import linemerge, unary_union
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, HERE)
-from geometry import read_pdf, box_panels_rev_j  # noqa: E402
+from geometry import read_pdf, box_panels_rev_k  # noqa: E402
 from dieline import dieline_from_panels  # noqa: E402
 
 PT = 72.0 / 25.4
@@ -146,8 +146,8 @@ def main():
     out = os.path.join(ROOT, "factory")
     os.makedirs(out, exist_ok=True)
 
-    # ---- BOX Rev J (die-line from the panel geometry)
-    pI, info = box_panels_rev_j()
+    # ---- BOX Rev K (die-line from the panel geometry)
+    pI, info = box_panels_rev_k()
     rb = dieline_from_panels(pI)
     b_cut, b_crease = merged(rb["cut"]), merged(rb["crease"] + rb["dbl"])
     bx = bounds(b_cut)
@@ -156,14 +156,14 @@ def main():
         "Material: E-flute litho-laminated board ~1.5 mm. Flutes parallel to the long side folds. NO GLUE.",
         "Closed box outside approx. 218.2 W x 233.6 D x 199 H; clear inside 206 x 226 x 196 (fits insert Rev C).",
         "CutContour = cut (incl. 6 lock slots in bottom, thumb notch). Crease = fold; pairs 2 mm apart = 180 deg folds.",
-        "Rev J: step %.0f mm, slope %.1f deg; lid hinges on the crease %.1f mm from the back (fixed top with 2 lock flaps)."
+        "Rev K: step %.0f mm, slope %.1f deg; lid hinges on the crease %.1f mm from the back (fixed top with 2 lock flaps)."
         % (info["step"], info["slope_deg"], info["fixed_top"]),
         "Printer to confirm crease/slot allowances.",
     ]
-    write_pdf(os.path.join(out, "MFC-box-RevJ_PRO-dieline-1to1.pdf"), b_cut, b_crease, box_info, "MFC CAP BOX - Rev J - DIELINE 1:1")
+    write_pdf(os.path.join(out, "MFC-box-RevK_PRO-dieline-1to1.pdf"), b_cut, b_crease, box_info, "MFC CAP BOX - Rev K - DIELINE 1:1")
     if "--dxf" in sys.argv:
-        write_dxf(os.path.join(out, "MFC-box-RevJ_dieline.dxf"), b_cut, b_crease)
-    shutil.copy(os.path.join(ROOT, "print", "MFC-box-RevJ_dieline.pdf"), os.path.join(out, "MFC-box-RevJ_drawing.pdf"))
+        write_dxf(os.path.join(out, "MFC-box-RevK_dieline.dxf"), b_cut, b_crease)
+    shutil.copy(os.path.join(ROOT, "print", "MFC-box-RevK_dieline.pdf"), os.path.join(out, "MFC-box-RevK_drawing.pdf"))
 
     # ---- INSERT Rev C (die-line from the source PDF vectors)
     raw = read_pdf(os.path.join(ROOT, "source", "MFC-insert-RevC.pdf"))
@@ -191,15 +191,15 @@ if __name__ == "__main__":
 
 SPEC = [
     ("h1", "MFC CAP BOX + CAP INSERT - PRODUCTION SPEC"),
-    ("p", "Box Rev J (glueless, E-flute) and insert Rev C (F-flute). All dimensions in mm."),
+    ("p", "Box Rev K (glueless, E-flute) and insert Rev C (F-flute). All dimensions in mm."),
     ("h2", "1. Files"),
-    ("p", "MFC-box-RevJ_DIELINE_1to1.pdf / .dxf  -  Box die-line, 1:1 (production file)"),
-    ("p", "MFC-box-RevJ_DRAWING.pdf  -  Box drawing with dimensions and assembly notes"),
+    ("p", "MFC-box-RevK_DIELINE_1to1.pdf / .dxf  -  Box die-line, 1:1 (production file)"),
+    ("p", "MFC-box-RevK_DRAWING.pdf  -  Box drawing with dimensions and assembly notes"),
     ("p", "MFC-insert-RevC_DIELINE_1to1.pdf / .dxf  -  Insert die-line, 1:1 (production file)"),
     ("p", "MFC-insert-RevC_DRAWING.pdf  -  Insert drawing with dimensions"),
     ("p", "PDF die-lines: spot colour CutContour (magenta) = cut, spot colour Crease (cyan) = crease."),
     ("p", "PDF layers: CUT, CREASE, INFO (INFO is set to non-printing). DXF layers: CUT (red), CREASE (blue), units mm."),
-    ("h2", "2. Box - Rev J"),
+    ("h2", "2. Box - Rev K"),
     ("p", "Style: one-piece glueless folding box, lid hinged on the back top edge, short tuck."),
     ("p", "Board: E-flute litho-laminated, caliper ~1.5 mm. Flutes parallel to the long side folds."),
     ("p", "Closed size, outside approx.: 218.2 W x 233.6 D x 199 H. Clear inside: 206 W x 226 D x 196 H."),
