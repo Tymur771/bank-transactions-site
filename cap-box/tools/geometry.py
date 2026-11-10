@@ -262,6 +262,41 @@ def box_panels_rev_i(step=REV_I["step"], wall_top=REV_I["wall_top"], seam=REV_I[
 
 
 # --------------------------------------------------------------------------
+# BOX Rev J: Rev I + the lid hinge moved to the end of the step (as in the
+# rigid-box original: fixed "Body Top" + lid hinged at its front edge).
+# The old lid top is split by a crease at the point where the lid side starts
+# (d = lid_end from the back), so the lid side turns about its own tip and
+# never lifts off the base step.  The fixed top gets two side lock flaps that
+# drop inside the step region of the side walls (glueless hold).
+# --------------------------------------------------------------------------
+TOPLOCK_DEPTH = 28.0
+
+
+def box_panels_rev_j():
+    P, info = box_panels_rev_i()
+    by = {p["id"]: p for p in P}
+    y_h = round(528.82 - info["lid_end"], 2)            # new lid hinge (sheet y)
+    lt = by["lidtop"]
+    lt["poly"] = [[295.73, 296.74], [512.39, 296.74], [512.39, y_h], [295.73, y_h]]
+    lt["parent"] = "bodytop"
+    lt["hinge"] = [[295.73, y_h], [512.39, y_h]]
+    i = P.index(lt)
+    P.insert(i, dict(id="bodytop", name="Fixed top (over the step)", parent="back", sheet="box",
+                     poly=[[295.73, y_h], [512.39, y_h], [512.39, 528.82], [295.73, 528.82]],
+                     holes=[], hinge=[[295.73, 528.82], [512.39, 528.82]], lift=None, face="out", rot=180))
+    # side lock flaps on the fixed top (fold down inside the step region of the side walls)
+    d = TOPLOCK_DEPTH
+    y0, y1 = y_h + 1.5, 528.82 - 3.0
+    flap = [[295.73, y0], [295.73 - d + 4, y0], [295.73 - d, y0 + 4], [295.73 - d, y1 - 4], [295.73 - d + 4, y1], [295.73, y1]]
+    for s, m in (("L", lambda p: p), ("R", lambda p: mirror(p, BXM / 2))):
+        P.insert(P.index(lt), dict(id="toplock" + s, name="Top lock flap", parent="bodytop", sheet="box",
+                                   poly=m(flap), holes=[], hinge=m([[295.73, y0], [295.73, y1]]),
+                                   lift=-2.6, face="hidden", rot=None))
+    info = dict(info, hinge_y=y_h, fixed_top=round(info["lid_end"], 2), toplock=d)
+    return P, info
+
+
+# --------------------------------------------------------------------------
 # INSERT (Rev C).  Main panel x 411.77..613.78, centre 512.775
 # --------------------------------------------------------------------------
 IXM = 1025.55

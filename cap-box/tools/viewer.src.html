@@ -95,7 +95,7 @@ button:focus-visible,input:focus-visible,label.btn:focus-within{outline:2px soli
     <div class="loading" id="loading">Загружаю 3D…</div>
     <div class="hud">
       <div class="brand">MFC · Cap Box</div>
-      <div class="meta"><span id="revMeta">Коробка Rev I · уступ 60 мм</span> · E-гофра 1,5 мм · без клея<br>Вкладыш Rev C · F-гофра</div>
+      <div class="meta"><span id="revMeta">Коробка Rev J · петля на конце уступа</span> · E-гофра 1,5 мм · без клея<br>Вкладыш Rev C · F-гофра</div>
     </div>
     <div class="hint">Тяните — вращать · колесо / щипок — масштаб · правая кнопка или Shift — сдвиг</div>
     <div class="views" role="group" aria-label="Ракурс">
@@ -131,7 +131,8 @@ button:focus-visible,input:focus-visible,label.btn:focus-within{outline:2px soli
       <section class="field">
         <div class="eyebrow">Ревизия коробки</div>
         <div class="seg" role="group" aria-label="Ревизия коробки" id="revSeg">
-          <button type="button" data-rev="I" aria-pressed="true">Rev I · уступ 60 мм</button>
+          <button type="button" data-rev="J" aria-pressed="true">Rev J · петля на уступе</button>
+          <button type="button" data-rev="I" aria-pressed="false">Rev I · уступ 60 мм</button>
           <button type="button" data-rev="H" aria-pressed="false">Rev H · из угла</button>
         </div>
         <p class="note" id="revNote"></p>
@@ -215,8 +216,8 @@ const STEPS = [
   {g:"Крышка", t:"Вкладыши и ушки крышки", d:"Вкладыши крышки перекиньте на 180° через наклонный край, их ушки уходят за перед крышки.",
     m:[["lidlinerL",180,0,.7],["lidlinerR",180,0,.7],["lidearL",-90,.6,1],["lidearR",-90,.6,1]]},
   {g:"Крышка", t:"Внутренний перед и язычок", d:"Внутренний перед крышки поднимите на 180° — он зажимает ушки. Язычок опустите на 180°: при закрытии он заходит за внутренний борт.",
-    m:[["lidinner",180,0,.55],["tuck",-180,.45,1]]},
-  {g:"Крышка", t:"Закрыть крышку", d:"Крышка поворачивается на петле по верхнему краю задней стенки. Коробка собрана: 218,2 × 233,6 × 199 мм снаружи. Ползунок «Открыть крышку» показывает вкладыш внутри.",
+    m:[["lidinner",180,0,.55],["tuck",-180,.45,1],["toplockL",90,.3,.8],["toplockR",90,.3,.8]]},
+  {g:"Крышка", t:"Закрыть крышку", d:"Rev J: неподвижный верх ложится на уступ, его замки уходят внутрь стенок, дальше крышка открывается на биговке по краю уступа. Rev H/I: петля по верхнему краю задней стенки. Коробка собрана: 218,2 × 233,6 × 199 мм снаружи. Ползунок «Открыть крышку» показывает вкладыш внутри.",
     m:[["lidtop",90,0,1]]},
 ];
 const NSTEP = STEPS.length - 1;
@@ -264,8 +265,10 @@ const SHEETS = {
   box:   {origin:[404.06, 842.355], inner:"#c4a77a", edge:"#b7a17f", board:"#d8d1c6", group:new THREE.Group()},
   insert:{origin:[512.78, 337.19],  inner:"#e4dfd6", edge:"#cbc2b3", board:"#dcd6cc", group:new THREE.Group()},
 };
-let REV = "I";
+let REV = "J";
 const REV_INFO = {
+  J:{meta:"Коробка Rev J · петля на конце уступа", sheet:"731,6 × 947,6 мм",
+     note:"Как у конструктора ригид-бокса: над уступом неподвижный верх 65,4 мм с двумя замками, крышка открывается на биговке по его переднему краю. Бок крышки вращается вокруг своего кончика и не отходит от уступа."},
   I:{meta:"Коробка Rev I · уступ 60 мм", sheet:"731,6 × 947,6 мм",
      note:"Боковина основы держит полную высоту 196 мм на 60 мм от задней стенки, дальше диагональ 44,6° к тому же переднему борту. Вкладыш закрыт стенками основы."},
   H:{meta:"Коробка Rev H · из угла", sheet:"728,1 × 947,6 мм",
@@ -545,8 +548,10 @@ function pose(){
   const insRoot = insertPose(valueAt("@insert", T));
   for (const P of ORDER){
     const base = P.parentId ? PANELS[P.parentId].world : (P.sheet === SHEETS.box ? boxRoot : insRoot);
-    let ang = valueAt(P.id, T);
-    if (P.id === "lidtop" && LID > 0) ang = ang + (Math.min(ang, -35) - ang) * LID;
+    const split = !!PANELS.bodytop;               // Rev J: fixed top + lid hinged at the end of the step
+    let ang = valueAt(P.id === "bodytop" ? "lidtop" : P.id, T);
+    if (split && P.id === "lidtop") ang = -LID * 112;
+    else if (P.id === "lidtop" && LID > 0) ang = ang + (Math.min(ang, -35) - ang) * LID;
     if (P.id.startsWith("petal")) ang = PET * 30;
     P.angle = ang;
     if (P.pivot && Math.abs(ang) > 1e-6){

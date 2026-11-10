@@ -40,7 +40,7 @@
 <text x="0" y="0" transform="translate(878.00 302.60) rotate(0.00)" font-family="Helvetica, Arial, sans-serif" font-size="3.70" font-weight="400" fill="#111111" text-anchor="start" letter-spacing="0.00">   allowances for their board before die.</text>
 <text x="0" y="0" transform="translate(878.00 308.80) rotate(0.00)" font-family="Helvetica, Arial, sans-serif" font-size="3.70" font-weight="400" fill="#111111" text-anchor="start" letter-spacing="0.00">8. E-flute: run flutes parallel to the long side folds.</text>
 <text x="0" y="0" transform="translate(878.00 315.00) rotate(0.00)" font-family="Helvetica, Arial, sans-serif" font-size="3.70" font-weight="400" fill="#111111" text-anchor="start" letter-spacing="0.00"></text>
-<text x="0" y="0" transform="translate(878.00 321.20) rotate(0.00)" font-family="Helvetica, Arial, sans-serif" font-size="3.70" font-weight="400" fill="#111111" text-anchor="start" letter-spacing="0.00">Rev I - glueless - step - generated from Rev H geometry</text>
+<text x="0" y="0" transform="translate(878.00 321.20) rotate(0.00)" font-family="Helvetica, Arial, sans-serif" font-size="3.70" font-weight="400" fill="#111111" text-anchor="start" letter-spacing="0.00">Rev I - glueless - generated from Rev H geometry</text>
 <text x="0" y="0" transform="translate(878.00 335.40) rotate(0.00)" font-family="Helvetica, Arial, sans-serif" font-size="4.40" font-weight="700" fill="#111111" text-anchor="start" letter-spacing="0.00">LEGEND</text>
 <path d="M878.0 342.2 h16" stroke="#e0102f" stroke-width="0.6" stroke-dasharray="none"/>
 <text x="0" y="0" transform="translate(900.00 343.40) rotate(0.00)" font-family="Helvetica, Arial, sans-serif" font-size="3.70" font-weight="400" fill="#111111" text-anchor="start" letter-spacing="0.00">Cut (incl. 6 lock slots in bottom)</text>
@@ -51,7 +51,7 @@
 <path d="M878.0 363.2 h16" stroke="#c03cc0" stroke-width="0.6" stroke-dasharray="1 1.2"/>
 <text x="0" y="0" transform="translate(900.00 364.40) rotate(0.00)" font-family="Helvetica, Arial, sans-serif" font-size="3.70" font-weight="400" fill="#111111" text-anchor="start" letter-spacing="0.00">Bleed +3 mm for artwork</text>
 <path d="M878.0 370.2 h16" stroke="#e85d1a" stroke-width="0.6" stroke-dasharray="4 2"/>
-<text x="0" y="0" transform="translate(900.00 371.40) rotate(0.00)" font-family="Helvetica, Arial, sans-serif" font-size="3.70" font-weight="400" fill="#111111" text-anchor="start" letter-spacing="0.00">Changed in Rev I</text>
+<text x="0" y="0" transform="translate(900.00 371.40) rotate(0.00)" font-family="Helvetica, Arial, sans-serif" font-size="3.70" font-weight="400" fill="#111111" text-anchor="start" letter-spacing="0.00">Changed vs Rev H</text>
 <rect x="878.00" y="395.40" width="116.80" height="99.50" fill="none" stroke="#999" stroke-width="0.3"/>
 <path d="M994.80 494.90 L994.80 396.90 L964.80 396.90 L881.83 478.60 L881.83 482.44 L878.00 482.44 L878.00 494.90 Z" fill="#efe9de" stroke="#111111" stroke-width="0.5"/>
 <path d="M994.80 395.40 L878.00 395.40 L878.00 474.94 L882.07 474.94 L962.09 396.15 L994.80 396.15 Z" fill="#2a2d31" fill-opacity="0.85" stroke="#111111" stroke-width="0.5"/>

@@ -8,6 +8,7 @@ from dieline import FOLD180
 
 RED, BLUE, PURPLE, MAG, GREY, INK = "#e0102f", "#0a6fd6", "#5b2bd6", "#c03cc0", "#555555", "#111111"
 LINER_FILL, EAR_FILL, CHANGE = "#f3edf9", "#e8f0fb", "#e85d1a"
+CHANGED_J = {"bodytop", "lidtop", "toplockL", "toplockR"}
 CHANGED = {"sideL", "sideR", "sidelinerL", "sidelinerR", "lidsideL", "lidsideR", "lidlinerL", "lidlinerR", "lidearL", "lidearR"}
 
 LABELS = {
@@ -17,6 +18,7 @@ LABELS = {
     "sidelinerR": "SIDE LINER (180 in, tabs lock in slots)", "lidsideL": "LID SIDE", "lidsideR": "LID SIDE",
     "lidlinerL": "LID LINER (180)", "lidlinerR": "LID LINER (180)", "lidearL": "EAR", "lidearR": "EAR",
     "backearL": "EAR", "backearR": "EAR", "frontearL": "EAR", "frontearR": "EAR",
+    "bodytop": "FIXED TOP", "toplockL": "TOP LOCK", "toplockR": "TOP LOCK",
 }
 
 
@@ -93,7 +95,7 @@ def side_view(ox, oy, sc, rev_i, rev_h_line):
     return "\n".join(out)
 
 
-def write_drawing(panels, raw, info, path_svg, sheet_poly, bleed_poly):
+def write_drawing(panels, raw, info, path_svg, sheet_poly, bleed_poly, rev="I"):
     minx, miny, maxx, maxy = sheet_poly.bounds
     page_w, page_h = 1140.0, 1080.0
     ox, oy = 40 - minx, 70 - miny          # place the sheet like the original drawing
@@ -102,10 +104,11 @@ def write_drawing(panels, raw, info, path_svg, sheet_poly, bleed_poly):
     for p in panels:
         if p["id"] in FOLD180 and p["id"] not in ("tuck",):
             body.append('<path d="%s" fill="%s"/>' % (d_path(p["poly"], True), LINER_FILL))
-        if p["id"].startswith(("backear", "frontear", "lidear")):
+        if p["id"].startswith(("backear", "frontear", "lidear", "toplock")):
             body.append('<path d="%s" fill="%s"/>' % (d_path(p["poly"], True), EAR_FILL))
     # changed panels outline
-    ch = unary_union([Polygon(p["poly"]) for p in panels if p["id"] in CHANGED]).buffer(5, join_style=2)
+    changed = CHANGED | (CHANGED_J if rev == "J" else set())
+    ch = unary_union([Polygon(p["poly"]) for p in panels if p["id"] in changed]).buffer(5, join_style=2)
     for g in getattr(ch, "geoms", [ch]):
         body.append('<path d="%s" fill="none" stroke="%s" stroke-width="0.5" stroke-dasharray="4 2" opacity="0.7"/>'
                     % (d_path(list(g.exterior.coords), True), CHANGE))
@@ -158,7 +161,8 @@ def write_drawing(panels, raw, info, path_svg, sheet_poly, bleed_poly):
     tx = page_w - 262
     t = []
     t.append(text(tx, 72, "MFC - CAP BOX", 11, INK, "start", weight=400))
-    t.append(text(tx, 84, "Rev I - GLUELESS, short tuck, STEP %s mm at the back of the side split" % f1(info["step"]), 4.6, CHANGE, "start"))
+    t.append(text(tx, 84, ("Rev J - GLUELESS, STEP %s mm, LID HINGE AT THE END OF THE STEP" if rev == "J" else
+                           "Rev I - GLUELESS, short tuck, STEP %s mm at the back of the side split") % f1(info["step"]), 4.6, CHANGE, "start"))
     lines = [
         "Material: E-flute litho-laminated board, caliper ~1.5 mm",
         "Scale 1:1 - units mm - view from OUTSIDE (print side)",
@@ -177,14 +181,24 @@ def write_drawing(panels, raw, info, path_svg, sheet_poly, bleed_poly):
         "    over the step. Lid front, lid ears unchanged.",
         "12. Side liners, lid liners and lid ears re-mirrored about the",
         "    new 180 fold lines; liner tabs still land in the same 6 slots.",
-        "13. Base front height at the seam %s (was 33.6)." % f1(info["base_front"]), "",
+        "13. Base front height at the seam %s (was 33.6)." % f1(info["base_front"]),
+    ] + ([
+        "14. Rev J: the top is split by a crease %s mm from the back (where" % f1(info.get("fixed_top", 0)),
+        "    the lid side starts). The back part is a FIXED TOP over the step;",
+        "    the lid hinges on that crease, so the lid side turns about its",
+        "    own tip and stays on the base step when the lid opens.",
+        "15. Fixed top has 2 side lock flaps (%s mm) that drop inside the" % f1(info.get("toplock", 0)),
+        "    side walls over the step and hold it without glue.",
+    ] if rev == "J" else []) + ["",
         "NOTES - NO GLUE ANYWHERE (as Rev H)",
         "1. Back and front lip fold up from BOTTOM.",
         "2. Side-wall ears fold in; side walls go up, ears sit BEHIND the",
         "   front lip. Inner lip folds 180 down over them, tabs into slots.",
         "3. Back ears fold in; side LINER folds 180 over the slope edge,",
         "   covers them, 2 tabs push into the bottom slots.",
-        "4. Lid hinges on the back top edge: the top is one panel.",
+        ("4. Fixed top folds over the step, its 2 lock flaps drop inside the side walls;"
+         if rev == "J" else "4. Lid hinges on the back top edge: the top is one panel."),
+    ] + (["   the lid hinges on the crease at the front edge of the fixed top."] if rev == "J" else []) + [
         "5. Lid front down, lid sides down, lid liners 180 over the slope",
         "   edge; their ears go in BEHIND the lid front.",
         "6. Lid inner front folds 180 up and traps those ears; the tuck",
@@ -192,16 +206,16 @@ def write_drawing(panels, raw, info, path_svg, sheet_poly, bleed_poly):
         "7. Draft for white sample - printer to confirm crease and slot",
         "   allowances for their board before die.",
         "8. E-flute: run flutes parallel to the long side folds.", "",
-        "Rev I - glueless - step - generated from Rev H geometry",
+        "Rev %s - glueless - generated from Rev H geometry" % rev,
     ]
     for i, ln in enumerate(lines):
-        col = CHANGE if ln.startswith(("CHANGE", "10.", "11.", "12.", "13.", "    ")) and 9 <= i <= 22 else INK
+        col = CHANGE if ln.startswith(("CHANGE", "10.", "11.", "12.", "13.", "14.", "15.", "    ")) and 9 <= i <= 28 else INK
         t.append(text(tx, 98 + i * 6.2, ln, 3.7, col, "start"))
     ly = 98 + len(lines) * 6.2 + 8
     t.append(text(tx, ly, "LEGEND", 4.4, INK, "start", weight=700))
     leg = [(RED, "", "Cut (incl. 6 lock slots in bottom)"), (BLUE, "5 2.5", "Crease / fold"),
            (PURPLE, "5 2.5", "Double crease 2 mm apart (180 folds)"), (MAG, "1 1.2", "Bleed +3 mm for artwork"),
-           (CHANGE, "4 2", "Changed in Rev I")]
+           (CHANGE, "4 2", "Changed vs Rev H")]
     for i, (c, da, nm) in enumerate(leg):
         y = ly + 8 + i * 7
         t.append('<path d="M%.1f %.1f h16" stroke="%s" stroke-width="0.6" stroke-dasharray="%s"/>' % (tx, y - 1.2, c, da or "none"))

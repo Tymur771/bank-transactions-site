@@ -1,8 +1,8 @@
 # MFC Cap Box: 3D-сборка и файлы под дизайн
 
-**Дизайн v1** (по референсам): `design/MFC-box-RevI_design-v1_outside*`, `design/MFC-box-RevI_design-v1_inside*` (печать внутри крышки, двусторонняя), `design/MFC-insert-RevC_design-v1*`. Файлы `*_outlined.pdf` и `*_PRINT-mirrored.pdf` — для печати (текст в кривых), `.svg` без суффикса — редактируемые (шрифты в `fonts/`: Montserrat + Cormorant Garamond, OFL).
+**Дизайн v1** (по референсам): `design/MFC-box-RevJ_design-v1_outside*`, `design/MFC-box-RevJ_design-v1_inside*` (печать внутри крышки, двусторонняя), `design/MFC-insert-RevC_design-v1*`. Файлы `*_outlined.pdf` и `*_PRINT-mirrored.pdf` — для печати (текст в кривых), `.svg` без суффикса — редактируемые (шрифты в `fonts/`: Montserrat + Cormorant Garamond, OFL).
 
-В 3D есть переключатель ревизий: **Rev I** (уступ, по умолчанию) и **Rev H** (исходный чертёж).
+В 3D есть переключатель ревизий: **Rev J** (по умолчанию, для производства: уступ 60 мм + неподвижный верх 65,4 мм, крышка на петле по краю уступа), **Rev I** и **Rev H** (исходный чертёж). Файлы для фабрики: `MFC_factory-files.zip` / `factory/` (Rev J + вкладыш Rev C).
 
 Коробка **Rev H** (без клея, E-гофра 1,5 мм) и вкладыш под кепку **Rev C**, собранные в одну модель.
 Вся геометрия взята из векторных линий исходных PDF (`source/`), а не обрисована по картинке.

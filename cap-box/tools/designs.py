@@ -19,7 +19,7 @@ from build import text_el, geom_d, layer, fmt, Font
 from design_v1 import logo, rule, T, S
 
 CX = 404.06
-LID = ["lidtop", "lidfront", "lidsideL", "lidsideR", "lidinner", "tuck", "lidearL", "lidearR"]
+LID = ["bodytop", "toplockL", "toplockR", "lidtop", "lidfront", "lidsideL", "lidsideR", "lidinner", "tuck", "lidearL", "lidearR"]
 LINERS = ["sidelinerL", "sidelinerR", "lidlinerL", "lidlinerR", "innerlip"]
 
 
@@ -225,8 +225,9 @@ def box_outside(v, panels, info, outlined):
         o.append(_clip("lidwrap", info, ["lidtop", "lidfront"]))
         o.append('<g clip-path="url(#lidwrap)">%s</g>' % logo(CX + 40, 330, 300, 180, v.top_logo))
     else:
-        o.append(logo(CX, 420, v.top_size, 180, v.top_logo))
-        t("MFC", CX, 352, 6.5, "Regular", v.lid_ink, 180, 0.62)
+        # lid top (opening part) spans y 296.74 (front) .. 463.4 (hinge to the fixed top)
+        o.append(logo(CX, 396, v.top_size, 180, v.top_logo))
+        t("MFC", CX, 330, 6.5, "Regular", v.lid_ink, 180, 0.62)
     # ---- lid front
     if v.front == "stack":
         o.append(logo(CX, y(112), v.front_logo, 180, v.lid_logo))
@@ -265,19 +266,20 @@ def box_inside(v, panels, info, outlined):
     # hides the first ~60 mm of the lid top from a viewer in front of the box
     f = 296.74
     if v.top == "wrap":
-        o.append(logo(CX + 30, f + 150, v.mark_inside * 1.6, 0, "#e0d6c5", mirror=True))
-        o.append(logo(CX, f + 92, 40, 0, v.in_ink, mirror=True))
+        o.append(logo(CX + 30, f + 110, v.mark_inside * 1.3, 0, "#e0d6c5", mirror=True))
+        o.append(logo(CX, f + 82, 34, 0, v.in_ink, mirror=True))
     else:
-        o.append(logo(CX, f + 92, v.mark_inside, 0, v.in_logo, mirror=True))
-    t("MFC", CX, f + 140, 9, "Regular", v.in_ink, 0, 0.62)
-    o.append(rule(CX, f + 146, 9, 0, v.rule))
-    t("FOR THOSE WHO CHASE", CX, f + 155, 2.7, "Medium", v.in_txt, 0, 0.42)
-    t("THE GOOD MOMENTS.", CX, f + 160, 2.7, "Medium", v.in_txt, 0, 0.42)
-    xl = 512.39 - 22
-    t("PREMIUM CAP", xl, f + 196, 2.5, "SemiBold", v.in_ink, 0, 0.32, "start")
-    o.append('<rect x="%s" y="%s" width="6" height="0.35" fill="%s"/>' % (fmt(xl - 6), fmt(f + 199), v.rule))
-    o.append(S(outlined, "Made for sunny days", xl, f + 205.5, 3.2, v.in_txt, 0, "start", mirror=True))
-    o.append(S(outlined, "and bigger stories.", xl, f + 209.8, 3.2, v.in_txt, 0, "start", mirror=True))
+        o.append(logo(CX, f + 82, min(v.mark_inside, 48), 0, v.in_logo, mirror=True))
+    # Rev J: the opening lid top ends at f + 166.7 (hinge); keep everything on it
+    t("MFC", CX, f + 116, 8, "Regular", v.in_ink, 0, 0.62)
+    o.append(rule(CX, f + 121, 8, 0, v.rule))
+    t("FOR THOSE WHO CHASE", CX, f + 129, 2.6, "Medium", v.in_txt, 0, 0.42)
+    t("THE GOOD MOMENTS.", CX, f + 134, 2.6, "Medium", v.in_txt, 0, 0.42)
+    xl = 512.39 - 18
+    t("PREMIUM CAP", xl, f + 148, 2.4, "SemiBold", v.in_ink, 0, 0.32, "start")
+    o.append('<rect x="%s" y="%s" width="6" height="0.35" fill="%s"/>' % (fmt(xl - 6), fmt(f + 151), v.rule))
+    o.append(S(outlined, "Made for sunny days", xl, f + 157, 3.1, v.in_txt, 0, "start", mirror=True))
+    o.append(S(outlined, "and bigger stories.", xl, f + 161.2, 3.1, v.in_txt, 0, "start", mirror=True))
     return layer("ARTWORK", "ARTWORK - inside print, lid (%s)" % v.name, "\n".join(o))
 
 
