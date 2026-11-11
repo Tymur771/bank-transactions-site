@@ -391,6 +391,45 @@ def box_panels_rev_l(tongue_w=REV_L["tongue_w"], tongue_h=REV_L["tongue_h"], cut
 
 
 # --------------------------------------------------------------------------
+# BOX Rev M (test print): Rev K front with a long closing tongue cut from the
+# INNER lip.  No tuck on the lid, no thumb cut: the front face is plain.
+#  * the inner lip keeps its place (180 over the front lip, side-wall ears
+#    between them) and gets a window; the tongue inside it hinges at the top
+#    of the window and folds 180 UP, standing behind the inner lip
+#  * the lid front + its inner front hem (180, 22 mm) close OUTSIDE over the
+#    tongue like a lid over a collar: no slot needed, friction holds the lid
+# --------------------------------------------------------------------------
+REV_M = dict(tongue_w=196.0, protrude=10.0, hinge_below_fold=5.0, kerf=1.0)
+
+
+def box_panels_rev_m(tongue_w=REV_M["tongue_w"], protrude=REV_M["protrude"],
+                     hinge_below_fold=REV_M["hinge_below_fold"], kerf=REV_M["kerf"]):
+    P, info = box_panels_rev_k()
+    P = [p for p in P if p["id"] != "tuck"]
+    by = {p["id"]: p for p in P}
+    yf, cx = 987.14, 404.06
+    yh = round(yf + hinge_below_fold, 2)              # tongue hinge (sheet y)
+    L = round(protrude + hinge_below_fold, 2)         # tongue length
+    x0, x1 = cx - tongue_w / 2, cx + tongue_w / 2
+    by["lip"]["poly"] = [[294.98, 958.39], [513.13, 958.39], [513.13, yf], [294.98, yf]]      # no thumb cut
+    by["innerlip"]["poly"] = [[294.98, yf], [513.13, yf], [513.13, 990.97], [510.85, 990.97],
+                              [510.85, 1014.35], [473.22, 1014.35], [471.72, 1017.60], [444.72, 1017.60],
+                              [443.22, 1014.35], [364.89, 1014.35], [363.39, 1017.60], [336.39, 1017.60],
+                              [334.89, 1014.35], [297.27, 1014.35], [297.27, 990.97], [294.98, 990.97]]
+    window = [[x0 - kerf, yh], [x1 + kerf, yh], [x1 + kerf, yh + L + kerf], [x0 - kerf, yh + L + kerf]]
+    by["innerlip"]["holes"] = [window]
+    r = 3.0
+    tongue = ([[x0, yh], [x1, yh]] + arc(x1 - r, yh + L - r, r, 0, 90, 4)[:] + arc(x0 + r, yh + L - r, r, 90, 180, 4))
+    tongue = [[round(x, 2), round(y, 2)] for x, y in tongue]
+    P.insert(P.index(by["innerlip"]) + 1, dict(id="tongue", name="Closing tongue (180 up)", parent="innerlip", sheet="box",
+                                               poly=tongue, holes=[], hinge=[[x0, yh], [x1, yh]], lift=2,
+                                               face="in", rot=None))
+    info = dict(info, tongue_w=tongue_w, tongue_len=L, tongue_protrude=protrude,
+                window_bottom=round(yh + L + kerf, 2), side_column=round(x0 - kerf - 297.27, 2))
+    return P, info
+
+
+# --------------------------------------------------------------------------
 # INSERT (Rev C).  Main panel x 411.77..613.78, centre 512.775
 # --------------------------------------------------------------------------
 IXM = 1025.55
