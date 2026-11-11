@@ -571,3 +571,49 @@ def r2(v):
     if isinstance(v, dict):
         return {k: r2(x) for k, x in v.items()}
     return v
+
+
+# --------------------------------------------------------------------------
+# BOX Rev N: Rev K + a closing TONGUE as a third layer.  The inner lip keeps
+# its full shape (no window, no tabs); the tongue hangs from its bottom edge
+# (double crease) and folds 180 UP behind it, from the floor to TOP above
+# the floor, i.e. it stands TOP - 30.3 mm above the front lip inside the lid.
+# Lower part (between the base side liners): W_LOW wide; above SHOULDER it
+# widens to W_HIGH, a close fit between the lid liners (no side play).
+# The lid front gets a half-round thumb notch on its bottom edge (circle on
+# the lid front / lid inner front fold).
+# --------------------------------------------------------------------------
+REV_N = dict(w_low=207.0, w_high=211.0, shoulder=35.0, top=50.0, thumb_r=12.0)
+
+
+def box_panels_rev_n(w_low=REV_N["w_low"], w_high=REV_N["w_high"], shoulder=REV_N["shoulder"],
+                     top=REV_N["top"], thumb_r=REV_N["thumb_r"]):
+    P, info = box_panels_rev_k()
+    P = [p for p in P if p["id"] != "tuck"]
+    by = {p["id"]: p for p in P}
+    yf, yb, cx = 987.14, 1014.35, 404.06
+    by["lip"]["poly"] = [[294.98, 958.39], [513.13, 958.39], [513.13, yf], [294.98, yf]]
+    by["innerlip"]["poly"] = [[294.98, yf], [513.13, yf], [513.13, 990.97], [510.85, 990.97],
+                              [510.85, yb], [297.27, yb], [297.27, 990.97], [294.98, 990.97]]
+    by["innerlip"]["holes"] = []
+    # the two front slots served the inner-lip tabs, which are gone
+    by["bottom"]["holes"] = [h for h in by["bottom"]["holes"] if min(y for x, y in h) < 950]
+    lo, hi = w_low / 2, w_high / 2
+    ch = (hi - lo)                                   # 45 deg chamfer up to the shoulder
+    r = 3.0
+    pts = [[cx - lo, yb], [cx + lo, yb], [cx + lo, yb + shoulder - ch], [cx + hi, yb + shoulder]]
+    pts += arc(cx + hi - r, yb + top - r, r, 0, 90, 4) + arc(cx - hi + r, yb + top - r, r, 90, 180, 4)
+    pts += [[cx - hi, yb + shoulder], [cx - lo, yb + shoulder - ch]]
+    tongue = [[round(x, 2), round(y, 2)] for x, y in pts]
+    P.insert(P.index(by["innerlip"]) + 1, dict(id="tongue", name="Closing tongue (180 up)", parent="innerlip", sheet="box",
+                                               poly=tongue, holes=[], hinge=[[cx - lo, yb], [cx + lo, yb]], lift=2,
+                                               face="in", rot=None))
+    # thumb notch: a circle on the lid front / lid inner front fold
+    yl = by["lidinner"]["hinge"][0][1]
+    disk = Point(cx, yl).buffer(thumb_r, 32)
+    for k in ("lidfront", "lidinner"):
+        g = Polygon(by[k]["poly"]).difference(disk)
+        by[k]["poly"] = [[round(x, 2), round(y, 2)] for x, y in list(g.exterior.coords)[:-1]]
+    info = dict(info, tongue_w=w_low, tongue_w_top=w_high, tongue_len=top, tongue_shoulder=shoulder,
+                tongue_protrude=round(top - (yb - yf) - 3.1, 1), thumb_r=thumb_r)
+    return P, info
