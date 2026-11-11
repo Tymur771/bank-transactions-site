@@ -615,5 +615,5 @@ def box_panels_rev_n(w_low=REV_N["w_low"], w_high=REV_N["w_high"], shoulder=REV_
         g = Polygon(by[k]["poly"]).difference(disk)
         by[k]["poly"] = [[round(x, 2), round(y, 2)] for x, y in list(g.exterior.coords)[:-1]]
     info = dict(info, tongue_w=w_low, tongue_w_top=w_high, tongue_len=top, tongue_shoulder=shoulder,
-                tongue_protrude=round(top - (yb - yf) - 3.1, 1), thumb_r=thumb_r)
+                tongue_protrude=round(top - (yb - yf), 1), thumb_r=thumb_r)
     return P, info
