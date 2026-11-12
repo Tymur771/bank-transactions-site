@@ -741,5 +741,5 @@ applyTheme(); syncUI(); syncRev(); lidLabel(); pose(); resize();
 Object.assign(cam, {theta:-0.2, phi:0.8, r:1450}); cam.target.set(0, 150, 30); placeCamera();
 Promise.all([setTexture("box"), setTexture("insert")]).finally(() => { $("#loading").hidden = true; requestRender(); });
 requestAnimationFrame(frame);
-window.__capbox = {scene, setRev, setPet:v => { PET = v; requestRender(); }, setT:v => { T = v; LID = 0; syncUI(); pose(); requestRender(); }, setLid:v => { LID = v; requestRender(); }, cam, fitView, PANELS, render:() => { pose(); placeCamera(); renderer.render(scene, camera); }};
+window.__capbox = {scene, camera, setRev, setPet:v => { PET = v; requestRender(); }, setT:v => { T = v; LID = 0; syncUI(); pose(); requestRender(); }, setLid:v => { LID = v; requestRender(); }, cam, fitView, PANELS, render:() => { pose(); placeCamera(); renderer.render(scene, camera); }};
 </script>
