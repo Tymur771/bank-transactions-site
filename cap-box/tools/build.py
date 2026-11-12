@@ -489,6 +489,12 @@ def main():
         "Слои CUT / CREASE / SAFE / BLEED / подсказки — технические, перед печатью скрыть (высечку даёт фабрика).",
     ], os.path.join(ROOT, "print"))
 
+    # ---- Rev E (folder 5 sent to the printer on 2026-10-23), rebuilt from its own DXF
+    from rev_e import box_panels_rev_e
+    pE, _ = box_panels_rev_e()
+    raw_E = dieline_from_panels(pE)
+    iE = sheet_info(pE, {"bleed": []})
+
     # ---- designs: the chosen one (v1.1 "Stone") goes into the 3D viewer, the others are proposals
     import designs as DS
     from functools import partial
@@ -508,6 +514,7 @@ def main():
         open(mp, "w").write(mir)
         to_pdf(mp, mp[:-4] + ".pdf")
         return dict(N=dict(design=dJ_, inside=dJn_),
+                    E=dict(design=svg_doc(iE["art"], o(pE, iE, True), tag), inside=svg_doc(iE["art"], n_(pE, iE, True), tag)),
                     L=dict(design=svg_doc(iL["art"], o(pL, iL, True), tag), inside=svg_doc(iL["art"], n_(pL, iL, True), tag)),
                     K=dict(design=svg_doc(iK["art"], o(pK, iK, True), tag), inside=svg_doc(iK["art"], n_(pK, iK, True), tag)),
                     J=dict(design=svg_doc(iJ["art"], o(pJ, iJ, True), tag), inside=svg_doc(iJ["art"], n_(pJ, iJ, True), tag)),
@@ -529,6 +536,7 @@ def main():
              "J": dict(panels=panel_json(pJ), art=iJ["art"], thickness=1.5, step=infoJ["step"]),
              "K": dict(panels=panel_json(pK), art=iK["art"], thickness=1.5, step=infoK["step"]),
              "L": dict(panels=panel_json(pL), art=iL["art"], thickness=1.5, step=infoL["step"]),
+             "E": dict(panels=panel_json(pE), art=iE["art"], thickness=1.5),
              "N": dict(panels=panel_json(pM), art=iM["art"], thickness=1.5, step=infoM["step"])},
         insert=dict(panels=panel_json(pi), art=ii["art"], thickness=0.9),
     )
@@ -539,6 +547,7 @@ def main():
              "J": dict(main_tex["J"], template=outline_template(raw_J, pJ, iJ)),
              "K": dict(main_tex["K"], template=outline_template(raw_K, pK, iK)),
              "L": dict(main_tex["L"], template=outline_template(raw_L, pL, iL)),
+             "E": dict(main_tex["E"], template=outline_template(raw_E, pE, iE)),
              "N": dict(main_tex["N"], template=outline_template(raw_M, pM, iM))},
         insert=dict(design=dIns, template=outline_template(raw_i, pi, ii)),
     )
@@ -548,7 +557,7 @@ def main():
     open(os.path.join(ROOT, "index.html"), "w", encoding="utf-8").write(html)
     vdir = os.environ.get("CAPBOX_VARIANTS")
     for key, vt in variant_tex.items():
-        tx = dict(box={k: dict(vt[k], template=textures["box"][k]["template"]) for k in ("H", "I", "J", "K", "L", "N")},
+        tx = dict(box={k: dict(vt[k], template=textures["box"][k]["template"]) for k in ("H", "I", "J", "K", "L", "E", "N")},
                   insert=dict(design=vt["insert"], template=textures["insert"]["template"]))
         h2 = src.replace("/*__GEOMETRY__*/null", json.dumps(geo, ensure_ascii=False, separators=(",", ":")))
         h2 = h2.replace("/*__TEXTURES__*/null", json.dumps(tx, ensure_ascii=False, separators=(",", ":")))
