@@ -10,6 +10,7 @@ Coordinates are die-line (sheet) mm.  Key panel spans (Rev H and Rev I alike):
   front lip  y 958.39 (floor fold) .. 987.14 (top, thumb notch)                rot 180
   inside of the lid top: read from inside -> mirrored glyphs, up = toward y 296.74
 """
+import os
 import math
 
 from shapely.geometry import box as sbox
@@ -276,8 +277,9 @@ def box_inside(v, panels, info, outlined):
     t("FOR THOSE WHO CHASE", CX, f + 129, 2.6, "Medium", v.in_txt, 0, 0.42)
     t("THE GOOD MOMENTS.", CX, f + 134, 2.6, "Medium", v.in_txt, 0, 0.42)
     xl = 512.39 - 18
-    t("PREMIUM CAP", xl, f + 148, 2.4, "SemiBold", v.in_ink, 0, 0.32, "start")
-    o.append('<rect x="%s" y="%s" width="6" height="0.35" fill="%s"/>' % (fmt(xl - 6), fmt(f + 151), v.rule))
+    if not os.environ.get("CAPBOX_NO_PREMIUM"):
+        t("PREMIUM CAP", xl, f + 148, 2.4, "SemiBold", v.in_ink, 0, 0.32, "start")
+        o.append('<rect x="%s" y="%s" width="6" height="0.35" fill="%s"/>' % (fmt(xl - 6), fmt(f + 151), v.rule))
     o.append(S(outlined, "Made for sunny days", xl, f + 157, 3.1, v.in_txt, 0, "start", mirror=True))
     o.append(S(outlined, "and bigger stories.", xl, f + 161.2, 3.1, v.in_txt, 0, "start", mirror=True))
     return layer("ARTWORK", "ARTWORK - inside print, lid (%s)" % v.name, "\n".join(o))
